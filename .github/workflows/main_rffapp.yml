@@ -30,6 +30,8 @@ jobs:
           npm run test --if-present
           cp -r public .next/standalone/public
           cp -r .next/static .next/standalone/.next/static
+          cp web.config .next/standalone/web.config
+          cp package.json .next/standalone/package.json
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -64,3 +66,4 @@ jobs:
           app-name: 'rffapp'
           slot-name: 'Production'
           package: .
+          startup-command: 'node server.js'
