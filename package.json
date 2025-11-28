@@ -5,11 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
+    "start": "next start",
     "lint": "eslint"
-  },
-  "engines": {
-    "node": "20.x"
   },
   "dependencies": {
     "next": "16.0.5",
