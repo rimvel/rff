@@ -216,7 +216,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                 </div>
                                             </div>
                                             <div className="flight-price">
-                                                {flight.price.value.toFixed(2)} {flight.price.currencyCode}
+                                                {flight.price?.value?.toFixed(2) ?? '0.00'} {flight.price?.currencyCode ?? 'EUR'}
                                             </div>
                                         </div>
                                         {fIdx < result.flights.length - 1 && (() => {
