@@ -847,9 +847,17 @@ body {
 }
 
 /* Price visibility control */
+/* Price visibility control */
 .mobile-price {
-  display: none;
-  /* Hidden by default (Desktop) */
+  display: block;
+  /* Default to visible */
+}
+
+@media (min-width: 769px) {
+  .mobile-price {
+    display: none !important;
+    /* Hide on desktop */
+  }
 }
 
 .desktop-price {
@@ -912,10 +920,15 @@ body {
   */
 
   .route-codes {
-    font-size: 1.1rem;
+    font-size: 1rem;
+    /* Slightly smaller than 1.1rem */
     margin-top: 0.25rem;
     display: block;
-    /* Ensure it takes full width if needed or helps stacking */
+  }
+
+  .route-cities {
+    font-size: 0.8rem;
+    /* Smaller cities */
   }
 }
 
