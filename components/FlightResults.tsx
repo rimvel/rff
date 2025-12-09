@@ -215,11 +215,9 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     <span className="airport">{fIdx === result.flights.length - 1 ? result.destination : result.via}</span>
                                                 </div>
                                             </div>
-                                            {result.flights.length > 1 && (
-                                                <div className="flight-price">
-                                                    {flight.price.value.toFixed(2)} {flight.price.currencyCode}
-                                                </div>
-                                            )}
+                                            <div className="flight-price">
+                                                {flight.price.value.toFixed(2)} {flight.price.currencyCode}
+                                            </div>
                                         </div>
                                         {fIdx < result.flights.length - 1 && (() => {
                                             const currentFlight = result.flights[fIdx];
