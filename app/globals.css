@@ -1170,37 +1170,45 @@ body {
 }
 
 .theme-toggle-btn {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 50;
-  background: rgba(255, 255, 255, 0.2);
+  /* Position relative now as it's in the footer */
+  position: relative;
+  margin: 1rem auto 0;
+  /* Center it */
+  bottom: auto;
+  right: auto;
+  z-index: 10;
+
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--foreground);
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  /* Slightly smaller in footer */
+  height: 2.5rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="dark"] .theme-toggle-btn {
   background: rgba(0, 0, 0, 0.3);
   border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .theme-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
   transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="dark"] .theme-toggle-btn:hover {
   background: rgba(0, 0, 0, 0.5);
+  color: #fff;
 }

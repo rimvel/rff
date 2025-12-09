@@ -81,9 +81,9 @@ export default function Home() {
       </main>
 
       <footer className="app-footer">
-        <p>Powered by Ryanair API • Built with Next.js</p>
+        <p>Powered by Ryanair API • Built with Next.js • RV</p>
+        <ThemeToggle />
       </footer>
-      <ThemeToggle />
     </div>
   );
 }
