@@ -60,8 +60,10 @@ export default function Home() {
     <div className="app-container">
       <header className="app-header-compact">
         <h1 className="app-title-compact">
-          <span className="logo-compact">✈️</span>
-          RFF.LT
+          <a href="/" className="no-underline text-current">
+            <span className="logo-compact">✈️</span>
+            RFF.LT
+          </a>
         </h1>
       </header>
 
