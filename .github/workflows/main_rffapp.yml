@@ -72,4 +72,4 @@ jobs:
           app-name: 'rffapp'
           slot-name: 'Production'
           package: .
-          startup-command: 'node server.js'
+          startup-command: 'PORT=3000 node server.js'
