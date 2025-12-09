@@ -146,27 +146,47 @@ export default function FlightResults({ results }: FlightResultsProps) {
                     return (
                         <div key={index} className="result-card">
                             <div className="result-header">
-                                <div className="flight-route-info" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                    <span className="badge direction-badge">DEPARTURE</span>
-                                    <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
-                                        {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
-                                    </span>
-                                    <span className="badge route-badge">
-                                        {result.origin} ({getCityName(result.origin)}) → {result.destination} ({getCityName(result.destination)})
-                                    </span>
-                                    {result.searchDate && (
-                                        <span className="badge date-badge">
-                                            {new Date(result.searchDate).toLocaleDateString('en-GB', {
-                                                day: 'numeric',
-                                                month: 'short'
-                                            })}
-                                        </span>
-                                    )}
-                                    <span className="badge duration-badge">
-                                        {formatDuration(result.duration)}
-                                    </span>
+                                <div className="result-header-content">
+                                    {/* Top Row: Badges, Codes, Price(Mobile) */}
+                                    <div className="header-top-row">
+                                        <div className="badge-group">
+                                            <span className="badge direction-badge">DEPARTURE</span>
+                                            <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
+                                                {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
+                                            </span>
+                                            {result.searchDate && (
+                                                <span className="badge date-badge">
+                                                    {new Date(result.searchDate).toLocaleDateString('en-GB', {
+                                                        day: 'numeric',
+                                                        month: 'short'
+                                                    })}
+                                                </span>
+                                            )}
+                                            <span className="badge duration-badge">
+                                                {formatDuration(result.duration)}
+                                            </span>
+                                        </div>
+
+                                        {/* Mobile: Price is here in top row */}
+                                        <div className="result-price mobile-price">
+                                            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
+                                            <span className="price-currency">{result.currency}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Route Info: Codes and Cities */}
+                                    <div className="route-info-container">
+                                        <div className="route-codes">
+                                            {result.origin} → {result.destination}
+                                        </div>
+                                        <div className="route-cities">
+                                            {getCityName(result.origin)} → {getCityName(result.destination)}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="result-price">
+
+                                {/* Desktop: Price is on the right side */}
+                                <div className="result-price desktop-price">
                                     <span className="price-value">{result.totalPrice.toFixed(2)}</span>
                                     <span className="price-currency">{result.currency}</span>
                                 </div>

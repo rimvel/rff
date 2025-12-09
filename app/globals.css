@@ -789,14 +789,136 @@ body {
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 }
 
+
 .result-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  /* Changed from center */
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid var(--border);
 }
+
+.result-header-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  /* Prevent flex children from overflowing */
+}
+
+.header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badge-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.route-info-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.route-codes {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.route-cities {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  opacity: 0.7;
+  white-space: normal;
+  /* Allow wrapping */
+  line-height: 1.3;
+}
+
+/* Price visibility control */
+.mobile-price {
+  display: none;
+  /* Hidden by default (Desktop) */
+}
+
+.desktop-price {
+  display: flex;
+  /* Visible by default (Desktop) */
+  margin-left: 1rem;
+  flex-shrink: 0;
+  /* Prevent squishing */
+}
+
+
+@media (max-width: 768px) {
+  .app-header-compact {
+    padding: 1.5rem 0 1rem;
+    /* Reduced padding on mobile */
+  }
+
+  .app-title-compact {
+    font-size: 1.75rem;
+    /* Smaller title on mobile */
+    margin-bottom: 0.25rem;
+  }
+
+  .logo-compact {
+    font-size: 2rem;
+  }
+
+  /* Header Layout Transformation */
+  .result-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .desktop-price {
+    display: none;
+  }
+
+  .mobile-price {
+    display: flex;
+    margin-left: auto;
+    /* Push to right */
+    align-items: center;
+  }
+
+  .header-top-row {
+    margin-bottom: 0.5rem;
+  }
+
+  .route-info-container {
+    margin-top: 0.25rem;
+  }
+
+  /* Make route codes sit next to badges or on next row? 
+     Implementation choice: Codes are usually below badges on stacked view, 
+     but user layout asked for Codes + Price on top if badges aren't primary.
+     But current DOM is badges -> codes. 
+     User request: "Row 1: codes + price". 
+     Wait, badges usually go above or inline. Let's keep structure logical.
+     Actually, let's put route codes with badges or just below badges but above cities.
+  */
+
+  .route-codes {
+    font-size: 1.1rem;
+    margin-top: 0.25rem;
+    display: block;
+    /* Ensure it takes full width if needed or helps stacking */
+  }
+}
+
 
 .badge {
   padding: 0.25rem 0.75rem;
