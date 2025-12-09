@@ -332,7 +332,15 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                             id="date"
                             type="date"
                             value={date}
-                            onChange={(e) => setDate(e.target.value)}
+                            onChange={(e) => {
+                                const newDate = e.target.value;
+                                setDate(newDate);
+                                if (roundTrip && newDate) {
+                                    const d = new Date(newDate);
+                                    d.setDate(d.getDate() + 7);
+                                    setReturnDate(d.toISOString().split('T')[0]);
+                                }
+                            }}
                             min={new Date().toISOString().split('T')[0]}
                             required
                         />
@@ -347,6 +355,11 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                     const newDate = currentDate.toISOString().split('T')[0];
                                     if (newDate >= minDate) {
                                         setDate(newDate);
+                                        if (roundTrip) {
+                                            const d = new Date(newDate);
+                                            d.setDate(d.getDate() + 7);
+                                            setReturnDate(d.toISOString().split('T')[0]);
+                                        }
                                     }
                                 }}
                                 title="Previous day"
@@ -359,7 +372,13 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                 onClick={() => {
                                     const currentDate = new Date(date);
                                     currentDate.setDate(currentDate.getDate() + 1);
-                                    setDate(currentDate.toISOString().split('T')[0]);
+                                    const newDate = currentDate.toISOString().split('T')[0];
+                                    setDate(newDate);
+                                    if (roundTrip) {
+                                        const d = new Date(newDate);
+                                        d.setDate(d.getDate() + 7);
+                                        setReturnDate(d.toISOString().split('T')[0]);
+                                    }
                                 }}
                                 title="Next day"
                             >
@@ -435,7 +454,14 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                     <button
                         type="button"
                         className={`toggle-btn ${roundTrip ? 'active' : ''}`}
-                        onClick={() => setRoundTrip(true)}
+                        onClick={() => {
+                            setRoundTrip(true);
+                            if (date) {
+                                const newReturn = new Date(date);
+                                newReturn.setDate(newReturn.getDate() + 7);
+                                setReturnDate(newReturn.toISOString().split('T')[0]);
+                            }
+                        }}
                     >
                         Round Trip
                     </button>
