@@ -16,6 +16,12 @@ interface SearchFormProps {
     isLoading: boolean;
 }
 
+const getFlagEmoji = (countryCode: string) => {
+    return countryCode
+        .toUpperCase()
+        .replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt(0)));
+};
+
 export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
     // Get tomorrow's date as default
     const getTomorrowDate = () => {
@@ -82,7 +88,7 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
             a.code.toLowerCase().includes(s) ||
             a.name.toLowerCase().includes(s) ||
             a.country.name.toLowerCase().includes(s)
-        ).slice(0, 10);
+        ).sort((a, b) => a.country.name.localeCompare(b.country.name));
 
         // Check if search matches a country name
         const countries = getCountriesWithAirports();
@@ -213,7 +219,11 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                         className="autocomplete-item autocomplete-country"
                                         onClick={() => selectOriginCountry(country)}
                                     >
-                                        <strong>{country.name} - All ({country.airportCodes.length})</strong>
+                                        <span className="flag-icon">{getFlagEmoji(country.code)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{country.name}</strong>
+                                            <span className="autocomplete-sub">All Airports ({country.airportCodes.length})</span>
+                                        </div>
                                     </div>
                                 ))}
                                 {/* Show individual airports */}
@@ -223,7 +233,11 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                         className="autocomplete-item"
                                         onClick={() => selectOrigin(a)}
                                     >
-                                        <strong>{a.code}</strong> - {a.name}, {a.country.name}
+                                        <span className="flag-icon">{getFlagEmoji(a.country.code)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{a.name} ({a.code})</strong>
+                                            <span className="autocomplete-sub">{a.country.name}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -276,7 +290,11 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                         className="autocomplete-item autocomplete-country"
                                         onClick={() => selectDestCountry(country)}
                                     >
-                                        <strong>{country.name} - All ({country.airportCodes.length})</strong>
+                                        <span className="flag-icon">{getFlagEmoji(country.code)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{country.name}</strong>
+                                            <span className="autocomplete-sub">All Airports ({country.airportCodes.length})</span>
+                                        </div>
                                     </div>
                                 ))}
                                 {/* Show individual airports */}
@@ -286,7 +304,11 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                         className="autocomplete-item"
                                         onClick={() => selectDest(a)}
                                     >
-                                        <strong>{a.code}</strong> - {a.name}, {a.country.name}
+                                        <span className="flag-icon">{getFlagEmoji(a.country.code)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{a.name} ({a.code})</strong>
+                                            <span className="autocomplete-sub">{a.country.name}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -305,14 +327,46 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                             </span>
                         )}
                     </div>
-                    <input
-                        id="date"
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        required
-                    />
+                    <div className="date-input-wrapper">
+                        <input
+                            id="date"
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            required
+                        />
+                        <div className="date-adjusters-overlay">
+                            <button
+                                type="button"
+                                className="date-adjuster-mini"
+                                onClick={() => {
+                                    const currentDate = new Date(date);
+                                    currentDate.setDate(currentDate.getDate() - 1);
+                                    const minDate = new Date().toISOString().split('T')[0];
+                                    const newDate = currentDate.toISOString().split('T')[0];
+                                    if (newDate >= minDate) {
+                                        setDate(newDate);
+                                    }
+                                }}
+                                title="Previous day"
+                            >
+                                -
+                            </button>
+                            <button
+                                type="button"
+                                className="date-adjuster-mini"
+                                onClick={() => {
+                                    const currentDate = new Date(date);
+                                    currentDate.setDate(currentDate.getDate() + 1);
+                                    setDate(currentDate.toISOString().split('T')[0]);
+                                }}
+                                title="Next day"
+                            >
+                                +
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {roundTrip && (
@@ -325,14 +379,46 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                 </span>
                             )}
                         </div>
-                        <input
-                            id="returnDate"
-                            type="date"
-                            value={returnDate}
-                            onChange={(e) => setReturnDate(e.target.value)}
-                            min={date}
-                            required={roundTrip}
-                        />
+                        <div className="date-input-wrapper">
+                            <input
+                                id="returnDate"
+                                type="date"
+                                value={returnDate}
+                                onChange={(e) => setReturnDate(e.target.value)}
+                                min={date}
+                                required={roundTrip}
+                            />
+                            <div className="date-adjusters-overlay">
+                                <button
+                                    type="button"
+                                    className="date-adjuster-mini"
+                                    onClick={() => {
+                                        const currentDate = new Date(returnDate);
+                                        currentDate.setDate(currentDate.getDate() - 1);
+                                        const minDate = date;
+                                        const newDate = currentDate.toISOString().split('T')[0];
+                                        if (newDate >= minDate) {
+                                            setReturnDate(newDate);
+                                        }
+                                    }}
+                                    title="Previous day"
+                                >
+                                    -
+                                </button>
+                                <button
+                                    type="button"
+                                    className="date-adjuster-mini"
+                                    onClick={() => {
+                                        const currentDate = new Date(returnDate);
+                                        currentDate.setDate(currentDate.getDate() + 1);
+                                        setReturnDate(currentDate.toISOString().split('T')[0]);
+                                    }}
+                                    title="Next day"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

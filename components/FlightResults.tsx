@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 interface Flight {
     departureDate: string;
     arrivalDate: string;
@@ -26,6 +28,15 @@ interface RouteResult {
 
 interface FlightResultsProps {
     results: RouteResult[];
+}
+
+interface Airport {
+    code: string;
+    name: string;
+    country: {
+        name: string;
+        code: string;
+    };
 }
 
 function formatDuration(minutes: number): string {
@@ -97,32 +108,52 @@ function checkVilniusBalloonRisk(result: RouteResult): { hasRisk: boolean; riskT
 }
 
 export default function FlightResults({ results }: FlightResultsProps) {
+    const [airportNames, setAirportNames] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        fetch('/api/airports')
+            .then(res => res.json())
+            .then((data: Airport[]) => {
+                const map: Record<string, string> = {};
+                data.forEach(a => {
+                    map[a.code] = a.name;
+                });
+                setAirportNames(map);
+            })
+            .catch(err => console.error('Failed to fetch airports:', err));
+    }, []);
+
+    const getCityName = (code: string) => {
+        return airportNames[code] || code;
+    };
+
     if (results.length === 0) {
         return (
             <div className="no-results">
-                <p>No flights found. Try different dates or airports.</p>
+                <p>No flights found for your search criteria.</p>
             </div>
         );
     }
 
     return (
         <div className="results-container">
-            <h2>Found {results.length} option{results.length !== 1 ? 's' : ''}</h2>
+            <h2 className="results-title">Found {results.length} options</h2>
 
             <div className="results-list">
-                {results.map((result, idx) => {
-                    const balloonRisk = checkVilniusBalloonRisk(result);
+                {results.map((result, index) => {
+                    const { hasRisk, riskType } = checkVilniusBalloonRisk(result);
 
                     return (
-                        <div key={idx} className={`result-card ${result.type}`}>
+                        <div key={index} className="result-card">
                             <div className="result-header">
-                                <div className="result-type">
-                                    <span className="badge direction-badge">Departure</span>
-                                    {result.type === 'direct' ? (
-                                        <span className="badge direct">Direct</span>
-                                    ) : (
-                                        <span className="badge layover">Via {result.via}</span>
-                                    )}
+                                <div className="flight-route-info" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <span className="badge direction-badge">DEPARTURE</span>
+                                    <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
+                                        {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
+                                    </span>
+                                    <span className="badge route-badge">
+                                        {result.origin} ({getCityName(result.origin)}) → {result.destination} ({getCityName(result.destination)})
+                                    </span>
                                     {result.searchDate && (
                                         <span className="badge date-badge">
                                             {new Date(result.searchDate).toLocaleDateString('en-GB', {
@@ -131,9 +162,6 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                             })}
                                         </span>
                                     )}
-                                    <span className="badge route-badge">
-                                        {result.origin} → {result.destination}
-                                    </span>
                                     <span className="badge duration-badge">
                                         {formatDuration(result.duration)}
                                     </span>
@@ -145,7 +173,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                             </div>
 
                             {/* Vilnius Balloon Risk Warning */}
-                            {balloonRisk.hasRisk && (
+                            {hasRisk && (
                                 <div className="vilnius-balloon-warning">
                                     🎈Cancellation risk (19:00-03:00) - possible meteorological balloons from Belarus
                                 </div>
@@ -170,9 +198,11 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     <span className="airport">{fIdx === result.flights.length - 1 ? result.destination : result.via}</span>
                                                 </div>
                                             </div>
-                                            <div className="flight-price">
-                                                {flight.price.value.toFixed(2)} {flight.price.currencyCode}
-                                            </div>
+                                            {result.flights.length > 1 && (
+                                                <div className="flight-price">
+                                                    {flight.price.value.toFixed(2)} {flight.price.currencyCode}
+                                                </div>
+                                            )}
                                         </div>
                                         {fIdx < result.flights.length - 1 && (() => {
                                             const currentFlight = result.flights[fIdx];
@@ -185,10 +215,10 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                             let warningMessage = '';
                                             let warningClass = '';
                                             if (waitMinutes > 480) { // Over 8 hours
-                                                warningMessage = '(⚠️ Long!)';
+                                                warningMessage = '⚠️ Long!';
                                                 warningClass = 'layover-warning-long';
                                             } else if (waitMinutes < 90) { // Under 1h 30min
-                                                warningMessage = '(⚡ Short!)';
+                                                warningMessage = '⚡ Short!';
                                                 warningClass = 'layover-warning-short';
                                             }
 
@@ -272,7 +302,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                         </span>
                                                     )}
                                                     <span className="badge route-badge">
-                                                        {result.destination} → {result.origin}
+                                                        {result.destination} ({getCityName(result.destination)}) → {result.origin} ({getCityName(result.origin)})
                                                     </span>
                                                     <span className="badge duration-badge">
                                                         {formatDuration(result.returnFlights[0].duration)}
@@ -311,10 +341,10 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                         let warningMessage = '';
                                                         let warningClass = '';
                                                         if (waitMinutes > 480) { // Over 8 hours
-                                                            warningMessage = '(⚠️ Long!)';
+                                                            warningMessage = '⚠️ Long!';
                                                             warningClass = 'layover-warning-long';
                                                         } else if (waitMinutes < 90) { // Under 1h 30min
-                                                            warningMessage = '(⚡ Short!)';
+                                                            warningMessage = '⚡ Short!';
                                                             warningClass = 'layover-warning-short';
                                                         }
 

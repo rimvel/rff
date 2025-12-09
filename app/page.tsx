@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import SearchForm from '@/components/SearchForm';
 import FlightResults from '@/components/FlightResults';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface RouteResult {
   type: 'direct' | 'layover';
@@ -13,6 +14,8 @@ interface RouteResult {
   totalPrice: number;
   currency: string;
   duration: number;
+  returnFlights?: any[];
+  isRoundTrip?: boolean;
 }
 
 export default function Home() {
@@ -45,9 +48,6 @@ export default function Home() {
       const res = await fetch(url);
       const data = await res.json();
       console.log('Search results received:', data);
-      console.log('First result:', data[0]);
-      console.log('First result isRoundTrip:', data[0]?.isRoundTrip);
-      console.log('First result returnFlights:', data[0]?.returnFlights);
       setResults(data);
     } catch (err) {
       console.error('Search failed:', err);
@@ -81,7 +81,7 @@ export default function Home() {
       <footer className="app-footer">
         <p>Powered by Ryanair API • Built with Next.js</p>
       </footer>
+      <ThemeToggle />
     </div>
   );
 }
-

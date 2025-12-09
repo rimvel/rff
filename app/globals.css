@@ -16,8 +16,15 @@
   --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
+[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card-bg: #1e293b;
+  --border: #334155;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --background: #0f172a;
     --foreground: #f1f5f9;
     --card-bg: #1e293b;
@@ -265,6 +272,88 @@ body {
   cursor: not-allowed;
 }
 
+/* Date Input with Adjusters */
+.date-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.date-input-wrapper:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.date-input-wrapper input[type="date"] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  width: 100%;
+  padding-right: 0.5rem !important;
+}
+
+.date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  margin-right: 3.5rem;
+  /* Move icon left of the buttons */
+  transition: all 0.2s ease;
+}
+
+.date-input-wrapper input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  transform: scale(1.1);
+}
+
+.date-input-wrapper input[type="date"]:focus {
+  box-shadow: none !important;
+}
+
+.date-adjusters-overlay {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 0.125rem;
+  z-index: 10;
+  background: var(--card-bg);
+  /* Cover any scrolling text */
+  padding-left: 0.25rem;
+}
+
+.date-adjuster-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 !important;
+  font-size: 1.1rem !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  background: transparent !important;
+  color: var(--secondary) !important;
+  border: none !important;
+  border-radius: 0.25rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  margin: 0 !important;
+}
+
+.date-adjuster-mini:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.1) !important;
+  color: var(--primary) !important;
+  transform: scale(1.1);
+}
+
+.date-adjuster-mini:active {
+  transform: scale(0.95);
+}
+
 /* Autocomplete */
 .autocomplete-wrapper {
   position: relative;
@@ -291,10 +380,28 @@ body {
 }
 
 .autocomplete-item {
+  display: flex;
+  align-items: center;
   padding: 0.75rem 1rem;
   cursor: pointer;
   transition: background 0.15s ease;
   font-size: 0.875rem;
+}
+
+.flag-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  line-height: 1;
+}
+
+.autocomplete-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.autocomplete-sub {
+  font-size: 0.75rem;
+  opacity: 0.7;
 }
 
 .autocomplete-item:hover {
@@ -661,7 +768,7 @@ body {
 .results-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
 }
 
 .result-card {
@@ -1060,4 +1167,29 @@ body {
   .flight-time {
     width: 100%;
   }
+}
+
+.theme-toggle-btn {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 50;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-lg);
+}
+
+.theme-toggle-btn:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-lg);
 }
