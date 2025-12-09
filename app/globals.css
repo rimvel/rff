@@ -884,7 +884,7 @@ body {
   }
 
   .desktop-price {
-    display: none;
+    display: none !important;
   }
 
   .mobile-price {
