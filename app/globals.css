@@ -871,7 +871,7 @@ body {
 
 @media (max-width: 768px) {
   .app-header-compact {
-    padding: 1.5rem 0 1rem;
+    padding: 0.5rem 0 0.5rem;
     /* Reduced padding on mobile */
   }
 
