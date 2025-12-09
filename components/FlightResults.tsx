@@ -174,11 +174,8 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                         </div>
                                     </div>
 
-                                    {/* Route Info: Codes and Cities */}
+                                    {/* Route Info: Cities only */}
                                     <div className="route-info-container">
-                                        <div className="route-codes">
-                                            {result.origin} → {result.destination}
-                                        </div>
                                         <div className="route-cities">
                                             {getCityName(result.origin)} → {getCityName(result.destination)}
                                         </div>
@@ -305,28 +302,36 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                 </div>
                                                 <div className="separator-line"></div>
                                             </div>
+
                                             <div className="result-header return-header">
-                                                <div className="result-type">
-                                                    <span className="badge direction-badge">Return</span>
-                                                    {result.returnFlights[0].type === 'direct' ? (
-                                                        <span className="badge direct">Direct</span>
-                                                    ) : (
-                                                        <span className="badge layover">Via {result.returnFlights[0].via}</span>
-                                                    )}
-                                                    {result.returnFlights[0].searchDate && (
-                                                        <span className="badge date-badge">
-                                                            {new Date(result.returnFlights[0].searchDate).toLocaleDateString('en-GB', {
-                                                                day: 'numeric',
-                                                                month: 'short'
-                                                            })}
-                                                        </span>
-                                                    )}
-                                                    <span className="badge route-badge">
-                                                        {result.destination} ({getCityName(result.destination)}) → {result.origin} ({getCityName(result.origin)})
-                                                    </span>
-                                                    <span className="badge duration-badge">
-                                                        {formatDuration(result.returnFlights[0].duration)}
-                                                    </span>
+                                                <div className="result-header-content">
+                                                    <div className="header-top-row">
+                                                        <div className="badge-group">
+                                                            <span className="badge direction-badge">Return</span>
+                                                            {result.returnFlights[0].type === 'direct' ? (
+                                                                <span className="badge direct">Direct</span>
+                                                            ) : (
+                                                                <span className="badge layover">Via {result.returnFlights[0].via}</span>
+                                                            )}
+                                                            {result.returnFlights[0].searchDate && (
+                                                                <span className="badge date-badge">
+                                                                    {new Date(result.returnFlights[0].searchDate).toLocaleDateString('en-GB', {
+                                                                        day: 'numeric',
+                                                                        month: 'short'
+                                                                    })}
+                                                                </span>
+                                                            )}
+                                                            <span className="badge duration-badge">
+                                                                {formatDuration(result.returnFlights[0].duration)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="route-info-container">
+                                                        <div className="route-cities">
+                                                            {getCityName(result.destination)} → {getCityName(result.origin)}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             {result.returnFlights[0].flights.map((flight, fIdx) => (
