@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface Airport {
     code: string;
     name: string;
     country: {
         name: string;
+        code: string;
     };
 }
 
@@ -40,6 +41,10 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
     const [departureDateDirection, setDepartureDateDirection] = useState('both'); // 'both' (±), 'after' (+), 'before' (-)
     const [returnDateDirection, setReturnDateDirection] = useState('both');
 
+    // Refs for input fields
+    const originInputRef = useRef<HTMLInputElement>(null);
+    const destInputRef = useRef<HTMLInputElement>(null);
+
     useEffect(() => {
         fetch('/api/airports')
             .then(res => res.json())
@@ -47,14 +52,45 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
             .catch(err => console.error('Failed to load airports', err));
     }, []);
 
-    const filterAirports = (search: string) => {
-        if (!search) return [];
+    // Get unique countries from airports
+    const getCountriesWithAirports = () => {
+        const countryMap = new Map<string, { name: string; code: string; airportCodes: string[] }>();
+
+        airports.forEach(airport => {
+            const countryName = airport.country.name;
+            const countryCode = airport.country.code;
+
+            if (!countryMap.has(countryName)) {
+                countryMap.set(countryName, {
+                    name: countryName,
+                    code: countryCode,
+                    airportCodes: []
+                });
+            }
+            countryMap.get(countryName)!.airportCodes.push(airport.code);
+        });
+
+        return Array.from(countryMap.values());
+    };
+
+    const filterAirports = (search: string): { airports: Airport[]; countries: { name: string; code: string; airportCodes: string[] }[] } => {
+        if (!search) return { airports: [], countries: [] };
         const s = search.toLowerCase();
-        return airports.filter(a =>
+
+        // Filter individual airports
+        const matchingAirports = airports.filter(a =>
             a.code.toLowerCase().includes(s) ||
             a.name.toLowerCase().includes(s) ||
             a.country.name.toLowerCase().includes(s)
         ).slice(0, 10);
+
+        // Check if search matches a country name
+        const countries = getCountriesWithAirports();
+        const matchingCountries = countries.filter(c =>
+            c.name.toLowerCase().includes(s) && c.airportCodes.length > 1
+        );
+
+        return { airports: matchingAirports, countries: matchingCountries };
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -81,6 +117,8 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
         setOrigin(airport.code);
         setOriginSearch(`${airport.code} - ${airport.name}`);
         setShowOriginDropdown(false);
+        // Focus destination input after selection
+        setTimeout(() => destInputRef.current?.focus(), 0);
     };
 
     const selectDest = (airport: Airport) => {
@@ -101,6 +139,49 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
         setDestSearch(tempOriginSearch);
     };
 
+    // Handle Enter key on origin input
+    const handleOriginKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            // Prioritize country selection if available
+            if (originFiltered.countries.length > 0) {
+                const country = originFiltered.countries[0];
+                selectOriginCountry(country);
+            } else if (originFiltered.airports.length > 0) {
+                selectOrigin(originFiltered.airports[0]);
+            }
+        }
+    };
+
+    // Handle Enter key on destination input
+    const handleDestKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            // Prioritize country selection if available
+            if (destFiltered.countries.length > 0) {
+                const country = destFiltered.countries[0];
+                selectDestCountry(country);
+            } else if (destFiltered.airports.length > 0) {
+                selectDest(destFiltered.airports[0]);
+            }
+        }
+    };
+
+    // Select all airports in a country for origin
+    const selectOriginCountry = (country: { name: string; code: string; airportCodes: string[] }) => {
+        setOrigin(country.airportCodes.join(','));
+        setOriginSearch(`${country.name} - All (${country.airportCodes.length})`);
+        setShowOriginDropdown(false);
+        setTimeout(() => destInputRef.current?.focus(), 0);
+    };
+
+    // Select all airports in a country for destination
+    const selectDestCountry = (country: { name: string; code: string; airportCodes: string[] }) => {
+        setDest(country.airportCodes.join(','));
+        setDestSearch(`${country.name} - All (${country.airportCodes.length})`);
+        setShowDestDropdown(false);
+    };
+
     return (
         <form onSubmit={handleSubmit} className="search-form">
             <div className="location-group">
@@ -108,6 +189,7 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                     <label htmlFor="origin">From</label>
                     <div className="autocomplete-wrapper">
                         <input
+                            ref={originInputRef}
                             id="origin"
                             type="text"
                             value={originSearch}
@@ -117,13 +199,25 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                 setShowOriginDropdown(true);
                             }}
                             onFocus={() => setShowOriginDropdown(true)}
+                            onKeyDown={handleOriginKeyDown}
                             placeholder="Airport code or name"
                             autoComplete="off"
                             required
                         />
-                        {showOriginDropdown && originFiltered.length > 0 && (
+                        {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.airports.length > 0) && (
                             <div className="autocomplete-dropdown">
-                                {originFiltered.map(a => (
+                                {/* Show country options first */}
+                                {originFiltered.countries.map(country => (
+                                    <div
+                                        key={`country-${country.code}`}
+                                        className="autocomplete-item autocomplete-country"
+                                        onClick={() => selectOriginCountry(country)}
+                                    >
+                                        <strong>{country.name} - All ({country.airportCodes.length})</strong>
+                                    </div>
+                                ))}
+                                {/* Show individual airports */}
+                                {originFiltered.airports.map((a: Airport) => (
                                     <div
                                         key={a.code}
                                         className="autocomplete-item"
@@ -158,6 +252,7 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                     <label htmlFor="dest">To</label>
                     <div className="autocomplete-wrapper">
                         <input
+                            ref={destInputRef}
                             id="dest"
                             type="text"
                             value={destSearch}
@@ -167,13 +262,25 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                                 setShowDestDropdown(true);
                             }}
                             onFocus={() => setShowDestDropdown(true)}
+                            onKeyDown={handleDestKeyDown}
                             placeholder="Airport code or name"
                             autoComplete="off"
                             required
                         />
-                        {showDestDropdown && destFiltered.length > 0 && (
+                        {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.airports.length > 0) && (
                             <div className="autocomplete-dropdown">
-                                {destFiltered.map(a => (
+                                {/* Show country options first */}
+                                {destFiltered.countries.map(country => (
+                                    <div
+                                        key={`country-${country.code}`}
+                                        className="autocomplete-item autocomplete-country"
+                                        onClick={() => selectDestCountry(country)}
+                                    >
+                                        <strong>{country.name} - All ({country.airportCodes.length})</strong>
+                                    </div>
+                                ))}
+                                {/* Show individual airports */}
+                                {destFiltered.airports.map((a: Airport) => (
                                     <div
                                         key={a.code}
                                         className="autocomplete-item"
