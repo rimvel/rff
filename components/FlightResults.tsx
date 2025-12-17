@@ -57,13 +57,13 @@ function formatDateTime(dateStr: string): string {
 
 function getBookingUrl(origin: string, destination: string, dateStr: string): string {
     const date = new Date(dateStr).toISOString().split('T')[0];
-    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destIata=${destination}&dateOut=${date}&roundtrip=false`;
+    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${date}&roundtrip=false`;
 }
 
 function getRoundTripBookingUrl(origin: string, destination: string, dateOutStr: string, dateInStr: string): string {
     const dateOut = new Date(dateOutStr).toISOString().split('T')[0];
     const dateIn = new Date(dateInStr).toISOString().split('T')[0];
-    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destIata=${destination}&dateOut=${dateOut}&dateIn=${dateIn}&roundtrip=true`;
+    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${dateOut}&dateIn=${dateIn}&roundtrip=true`;
 }
 
 // Check if a flight time is in the Vilnius balloon risk window (19:00-03:00)
