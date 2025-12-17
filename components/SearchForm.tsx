@@ -11,9 +11,24 @@ interface Airport {
     };
 }
 
+export interface SearchFormState {
+    origin: string;
+    dest: string;
+    date: string;
+    returnDate: string;
+    roundTrip: boolean;
+    flexibleDeparture: boolean;
+    flexibleReturn: boolean;
+    departureDateRange: number;
+    returnDateRange: number;
+    departureDateDirection: string;
+    returnDateDirection: string;
+}
+
 interface SearchFormProps {
     onSearch: (origin: string, dest: string, date: string, returnDate?: string, departureDateRange?: number, returnDateRange?: number, departureDateDirection?: string, returnDateDirection?: string) => void;
     isLoading: boolean;
+    initialValues?: Partial<SearchFormState>;
 }
 
 const getFlagEmoji = (countryCode: string) => {
@@ -22,7 +37,7 @@ const getFlagEmoji = (countryCode: string) => {
         .replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt(0)));
 };
 
-export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
+export default function SearchForm({ onSearch, isLoading, initialValues }: SearchFormProps) {
     // Get tomorrow's date as default
     const getTomorrowDate = () => {
         const tomorrow = new Date();
@@ -31,21 +46,28 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
     };
 
     const [airports, setAirports] = useState<Airport[]>([]);
-    const [origin, setOrigin] = useState('');
-    const [dest, setDest] = useState('');
-    const [date, setDate] = useState(getTomorrowDate());
-    const [returnDate, setReturnDate] = useState('');
-    const [originSearch, setOriginSearch] = useState('');
-    const [destSearch, setDestSearch] = useState('');
+    const [origin, setOrigin] = useState(initialValues?.origin || '');
+    const [dest, setDest] = useState(initialValues?.dest || '');
+    const [date, setDate] = useState(initialValues?.date || getTomorrowDate());
+    const [returnDate, setReturnDate] = useState(initialValues?.returnDate || '');
+    const [originSearch, setOriginSearch] = useState(initialValues?.origin || '');
+    const [destSearch, setDestSearch] = useState(initialValues?.dest || '');
     const [showOriginDropdown, setShowOriginDropdown] = useState(false);
     const [showDestDropdown, setShowDestDropdown] = useState(false);
-    const [roundTrip, setRoundTrip] = useState(false);
-    const [flexibleDeparture, setFlexibleDeparture] = useState(false);
-    const [flexibleReturn, setFlexibleReturn] = useState(false);
-    const [departureDateRange, setDepartureDateRange] = useState(3);
-    const [returnDateRange, setReturnDateRange] = useState(3);
-    const [departureDateDirection, setDepartureDateDirection] = useState('both'); // 'both' (±), 'after' (+), 'before' (-)
-    const [returnDateDirection, setReturnDateDirection] = useState('both');
+
+    // Determine initial roundTrip state: check initialValues first, otherwise default to false
+    const [roundTrip, setRoundTrip] = useState(
+        initialValues?.roundTrip !== undefined
+            ? initialValues.roundTrip
+            : !!initialValues?.returnDate // If return date is present, assume round trip
+    );
+
+    const [flexibleDeparture, setFlexibleDeparture] = useState(initialValues?.flexibleDeparture || false);
+    const [flexibleReturn, setFlexibleReturn] = useState(initialValues?.flexibleReturn || false);
+    const [departureDateRange, setDepartureDateRange] = useState(initialValues?.departureDateRange || 3);
+    const [returnDateRange, setReturnDateRange] = useState(initialValues?.returnDateRange || 3);
+    const [departureDateDirection, setDepartureDateDirection] = useState(initialValues?.departureDateDirection || 'both');
+    const [returnDateDirection, setReturnDateDirection] = useState(initialValues?.returnDateDirection || 'both');
 
     // Refs for input fields
     const originInputRef = useRef<HTMLInputElement>(null);

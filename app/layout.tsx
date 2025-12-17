@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ryanair Flight Finder",
+  title: "Ryanair Flight Finder - beyond direct flights",
   description: "Find the cheapest Ryanair flights with smart layover detection",
 };
 

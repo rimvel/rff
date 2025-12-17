@@ -62,9 +62,10 @@ export default function Home() {
         <h1 className="app-title-compact">
           <a href="/" className="no-underline text-current">
             <span className="logo-compact">✈️</span>
-            RFF.LT
+            Ryanair Flight Finder
           </a>
         </h1>
+        <p className="app-subtitle">beyond direct flights</p>
       </header>
 
       <main className="app-main">
