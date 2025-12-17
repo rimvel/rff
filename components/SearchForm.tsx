@@ -50,11 +50,11 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
     };
 
     const [airports, setAirports] = useState<Airport[]>([]);
-    const [origin, setOrigin] = useState(initialValues?.origin || '');
+    const [origin, setOrigin] = useState(initialValues?.origin || 'VNO');
     const [dest, setDest] = useState(initialValues?.dest || '');
     const [date, setDate] = useState(initialValues?.date || getTomorrowDate());
     const [returnDate, setReturnDate] = useState(initialValues?.returnDate || '');
-    const [originSearch, setOriginSearch] = useState(initialValues?.origin || '');
+    const [originSearch, setOriginSearch] = useState(initialValues?.origin || 'VNO - Vilnius');
     const [destSearch, setDestSearch] = useState(initialValues?.dest || '');
     const [showOriginDropdown, setShowOriginDropdown] = useState(false);
     const [showDestDropdown, setShowDestDropdown] = useState(false);
