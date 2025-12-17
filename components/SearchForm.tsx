@@ -357,10 +357,13 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                             onChange={(e) => {
                                 const newDate = e.target.value;
                                 setDate(newDate);
-                                if (roundTrip && newDate) {
+                                if (roundTrip && newDate && !returnDate) {
                                     const d = new Date(newDate);
                                     d.setDate(d.getDate() + 7);
                                     setReturnDate(d.toISOString().split('T')[0]);
+                                } else if (roundTrip && newDate && returnDate && newDate > returnDate) {
+                                    // Ensure return is not before departure
+                                    setReturnDate(newDate);
                                 }
                             }}
                             min={new Date().toISOString().split('T')[0]}
@@ -377,7 +380,7 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                                     const newDate = currentDate.toISOString().split('T')[0];
                                     if (newDate >= minDate) {
                                         setDate(newDate);
-                                        if (roundTrip) {
+                                        if (roundTrip && !returnDate) {
                                             const d = new Date(newDate);
                                             d.setDate(d.getDate() + 7);
                                             setReturnDate(d.toISOString().split('T')[0]);
@@ -396,10 +399,13 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                                     currentDate.setDate(currentDate.getDate() + 1);
                                     const newDate = currentDate.toISOString().split('T')[0];
                                     setDate(newDate);
-                                    if (roundTrip) {
+                                    if (roundTrip && !returnDate) {
                                         const d = new Date(newDate);
                                         d.setDate(d.getDate() + 7);
                                         setReturnDate(d.toISOString().split('T')[0]);
+                                    } else if (roundTrip && returnDate && newDate > returnDate) {
+                                        // Ensure return is not before departure
+                                        setReturnDate(newDate);
                                     }
                                 }}
                                 title="Next day"
