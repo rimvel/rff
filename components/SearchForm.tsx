@@ -289,6 +289,20 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                             autoComplete="off"
                             required
                         />
+                        {originSearch && (
+                            <button
+                                type="button"
+                                className="clear-input-btn"
+                                onClick={() => {
+                                    setOriginSearch('');
+                                    setOrigin('');
+                                    originInputRef.current?.focus();
+                                }}
+                                title="Clear From"
+                            >
+                                ✕
+                            </button>
+                        )}
                         {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.cities.length > 0 || originFiltered.airports.length > 0) && (
                             <div className="autocomplete-dropdown">
                                 {/* Show city options first */}
@@ -374,6 +388,20 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                             autoComplete="off"
                             required
                         />
+                        {destSearch && (
+                            <button
+                                type="button"
+                                className="clear-input-btn"
+                                onClick={() => {
+                                    setDestSearch('');
+                                    setDest('');
+                                    destInputRef.current?.focus();
+                                }}
+                                title="Clear To"
+                            >
+                                ✕
+                            </button>
+                        )}
                         {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.cities.length > 0 || destFiltered.airports.length > 0) && (
                             <div className="autocomplete-dropdown">
                                 {/* Show city options first */}

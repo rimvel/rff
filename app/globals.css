@@ -371,6 +371,31 @@ body {
 
 .autocomplete-wrapper input {
   width: 100%;
+  padding-right: 2.5rem;
+}
+
+.clear-input-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  opacity: 0.4;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  line-height: 1;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+}
+
+.clear-input-btn:hover {
+  opacity: 1;
 }
 
 .autocomplete-dropdown {
