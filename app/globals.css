@@ -800,10 +800,13 @@ body {
 }
 
 .results-container h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
   color: white;
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .results-list {

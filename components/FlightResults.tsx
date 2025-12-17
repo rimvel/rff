@@ -137,7 +137,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
 
     return (
         <div className="results-container">
-            <h2 className="results-title">Found {results.length} options</h2>
+            <h2 className="results-title">Found {results.length} {results.length === 1 ? 'option' : 'options'}</h2>
 
             <div className="results-list">
                 {results.map((result, index) => {
