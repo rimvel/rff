@@ -9,6 +9,10 @@ export interface Airport {
         code: string;
         name: string;
     };
+    city: {
+        name: string;
+        code: string;
+    };
 }
 
 export interface Route {

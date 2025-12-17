@@ -427,6 +427,20 @@ body {
   color: var(--secondary);
 }
 
+.autocomplete-city {
+  background: rgba(14, 165, 233, 0.05);
+  border-left: 3px solid var(--primary);
+  font-weight: 600;
+}
+
+.autocomplete-city:hover {
+  background: rgba(14, 165, 233, 0.15);
+}
+
+.autocomplete-city strong {
+  color: var(--primary);
+}
+
 /* Form Options (Checkboxes and Flexible Dates) */
 .form-options {
   grid-column: 1 / -1;

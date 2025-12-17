@@ -9,6 +9,10 @@ interface Airport {
         name: string;
         code: string;
     };
+    city: {
+        name: string;
+        code: string;
+    };
 }
 
 export interface SearchFormState {
@@ -101,24 +105,56 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
         return Array.from(countryMap.values());
     };
 
-    const filterAirports = (search: string): { airports: Airport[]; countries: { name: string; code: string; airportCodes: string[] }[] } => {
-        if (!search) return { airports: [], countries: [] };
+    // Get unique cities from airports
+    const getCitiesWithAirports = () => {
+        const cityMap = new Map<string, { name: string; countryCode: string; airportCodes: string[] }>();
+
+        airports.forEach(airport => {
+            const cityName = airport.city.name;
+            const cityKey = `${cityName}-${airport.country.code}`; // Unique city per country
+
+            if (!cityMap.has(cityKey)) {
+                cityMap.set(cityKey, {
+                    name: cityName,
+                    countryCode: airport.country.code,
+                    airportCodes: []
+                });
+            }
+            cityMap.get(cityKey)!.airportCodes.push(airport.code);
+        });
+
+        return Array.from(cityMap.values());
+    };
+
+    const filterAirports = (search: string): {
+        airports: Airport[];
+        countries: { name: string; code: string; airportCodes: string[] }[];
+        cities: { name: string; countryCode: string; airportCodes: string[] }[]
+    } => {
+        if (!search) return { airports: [], countries: [], cities: [] };
         const s = search.toLowerCase();
 
         // Filter individual airports
         const matchingAirports = airports.filter(a =>
             a.code.toLowerCase().includes(s) ||
             a.name.toLowerCase().includes(s) ||
-            a.country.name.toLowerCase().includes(s)
+            a.country.name.toLowerCase().includes(s) ||
+            a.city.name.toLowerCase().includes(s)
         ).sort((a, b) => a.country.name.localeCompare(b.country.name));
 
         // Check if search matches a country name
         const countries = getCountriesWithAirports();
-        const matchingCountries = countries.filter(c =>
+        const matchingCountries = countries.filter((c: { name: string; airportCodes: string[] }) =>
             c.name.toLowerCase().includes(s) && c.airportCodes.length > 1
         );
 
-        return { airports: matchingAirports, countries: matchingCountries };
+        // Check if search matches a city name
+        const cities = getCitiesWithAirports();
+        const matchingCities = cities.filter((c: { name: string; airportCodes: string[] }) =>
+            c.name.toLowerCase().includes(s) && c.airportCodes.length > 1
+        );
+
+        return { airports: matchingAirports, countries: matchingCountries, cities: matchingCities };
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -171,8 +207,11 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
     const handleOriginKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            // Prioritize country selection if available
-            if (originFiltered.countries.length > 0) {
+            // Prioritize city selection, then country selection
+            if (originFiltered.cities.length > 0) {
+                const city = originFiltered.cities[0];
+                selectOriginCity(city);
+            } else if (originFiltered.countries.length > 0) {
                 const country = originFiltered.countries[0];
                 selectOriginCountry(country);
             } else if (originFiltered.airports.length > 0) {
@@ -185,8 +224,11 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
     const handleDestKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            // Prioritize country selection if available
-            if (destFiltered.countries.length > 0) {
+            // Prioritize city selection, then country selection
+            if (destFiltered.cities.length > 0) {
+                const city = destFiltered.cities[0];
+                selectDestCity(city);
+            } else if (destFiltered.countries.length > 0) {
                 const country = destFiltered.countries[0];
                 selectDestCountry(country);
             } else if (destFiltered.airports.length > 0) {
@@ -207,6 +249,21 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
     const selectDestCountry = (country: { name: string; code: string; airportCodes: string[] }) => {
         setDest(country.airportCodes.join(','));
         setDestSearch(`${country.name} - All (${country.airportCodes.length})`);
+        setShowDestDropdown(false);
+    };
+
+    // Select all airports in a city for origin
+    const selectOriginCity = (city: { name: string; countryCode: string; airportCodes: string[] }) => {
+        setOrigin(city.airportCodes.join(','));
+        setOriginSearch(`${city.name} - All (${city.airportCodes.length})`);
+        setShowOriginDropdown(false);
+        setTimeout(() => destInputRef.current?.focus(), 0);
+    };
+
+    // Select all airports in a city for destination
+    const selectDestCity = (city: { name: string; countryCode: string; airportCodes: string[] }) => {
+        setDest(city.airportCodes.join(','));
+        setDestSearch(`${city.name} - All (${city.airportCodes.length})`);
         setShowDestDropdown(false);
     };
 
@@ -232,9 +289,23 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                             autoComplete="off"
                             required
                         />
-                        {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.airports.length > 0) && (
+                        {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.cities.length > 0 || originFiltered.airports.length > 0) && (
                             <div className="autocomplete-dropdown">
-                                {/* Show country options first */}
+                                {/* Show city options first */}
+                                {originFiltered.cities.map(city => (
+                                    <div
+                                        key={`city-${city.name}-${city.countryCode}`}
+                                        className="autocomplete-item autocomplete-city"
+                                        onClick={() => selectOriginCity(city)}
+                                    >
+                                        <span className="flag-icon">{getFlagEmoji(city.countryCode)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{city.name}</strong>
+                                            <span className="autocomplete-sub">All Airports ({city.airportCodes.length})</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {/* Show country options */}
                                 {originFiltered.countries.map(country => (
                                     <div
                                         key={`country-${country.code}`}
@@ -303,9 +374,23 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                             autoComplete="off"
                             required
                         />
-                        {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.airports.length > 0) && (
+                        {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.cities.length > 0 || destFiltered.airports.length > 0) && (
                             <div className="autocomplete-dropdown">
-                                {/* Show country options first */}
+                                {/* Show city options first */}
+                                {destFiltered.cities.map(city => (
+                                    <div
+                                        key={`city-${city.name}-${city.countryCode}`}
+                                        className="autocomplete-item autocomplete-city"
+                                        onClick={() => selectDestCity(city)}
+                                    >
+                                        <span className="flag-icon">{getFlagEmoji(city.countryCode)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{city.name}</strong>
+                                            <span className="autocomplete-sub">All Airports ({city.airportCodes.length})</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {/* Show country options */}
                                 {destFiltered.countries.map(country => (
                                     <div
                                         key={`country-${country.code}`}
