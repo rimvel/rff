@@ -89,14 +89,14 @@ body {
 
 .logo {
   display: inline-block;
-  font-size: 3.5rem;
+  font-size: 2.75rem;
   margin-right: 0.5rem;
   animation: bounce 2s infinite;
 }
 
 .logo-compact {
   display: inline-block;
-  font-size: 2.5rem;
+  font-size: 2.0rem;
   margin-right: 0.75rem;
 }
 
