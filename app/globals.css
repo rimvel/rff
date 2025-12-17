@@ -150,12 +150,16 @@ body {
   .location-group {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.5rem;
   }
 
   .location-group .swap-button {
     align-self: center;
-    margin: 0.5rem 0;
+    margin: -0.5rem 0;
+    width: 2.5rem;
+    height: 2.5rem;
     transform: rotate(90deg);
+    z-index: 5;
   }
 
   .location-group .swap-button:hover {
