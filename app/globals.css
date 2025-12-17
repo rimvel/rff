@@ -1409,3 +1409,47 @@ body {
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
 }
+
+/* Price Links */
+.price-link,
+.segment-price-link {
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.price-link:hover {
+  transform: scale(1.05);
+  color: var(--primary);
+  filter: brightness(1.2);
+}
+
+.segment-price-link {
+  color: var(--primary);
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  background: rgba(14, 165, 233, 0.05);
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+}
+
+.segment-price-link:hover {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.2);
+  transform: translateY(-1px);
+}
+
+.book-icon {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  margin-left: 0.125rem;
+  transition: transform 0.2s ease;
+}
+
+.segment-price-link:hover .book-icon {
+  opacity: 1;
+  transform: translate(2px, -2px);
+}

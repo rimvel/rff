@@ -55,6 +55,17 @@ function formatDateTime(dateStr: string): string {
     });
 }
 
+function getBookingUrl(origin: string, destination: string, dateStr: string): string {
+    const date = new Date(dateStr).toISOString().split('T')[0];
+    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destIata=${destination}&dateOut=${date}&roundtrip=false`;
+}
+
+function getRoundTripBookingUrl(origin: string, destination: string, dateOutStr: string, dateInStr: string): string {
+    const dateOut = new Date(dateOutStr).toISOString().split('T')[0];
+    const dateIn = new Date(dateInStr).toISOString().split('T')[0];
+    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destIata=${destination}&dateOut=${dateOut}&dateIn=${dateIn}&roundtrip=true`;
+}
+
 // Check if a flight time is in the Vilnius balloon risk window (19:00-03:00)
 function isInVilniusBalloonRiskWindow(dateStr: string, airportCode: string): boolean {
     if (airportCode !== 'VNO') return false;
@@ -143,6 +154,21 @@ export default function FlightResults({ results }: FlightResultsProps) {
                 {results.map((result, index) => {
                     const { hasRisk, riskType } = checkVilniusBalloonRisk(result);
 
+                    const isSimpleDirect = result.type === 'direct' && !result.isRoundTrip;
+                    const isSimpleRoundTripDirect = result.type === 'direct' && result.isRoundTrip && result.returnFlights?.[0]?.type === 'direct';
+
+                    let mainBookingUrl = '';
+                    if (isSimpleDirect) {
+                        mainBookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate);
+                    } else if (isSimpleRoundTripDirect) {
+                        mainBookingUrl = getRoundTripBookingUrl(
+                            result.origin,
+                            result.destination,
+                            result.flights[0].departureDate,
+                            result.returnFlights![0].flights[0].departureDate
+                        );
+                    }
+
                     return (
                         <div key={index} className="result-card">
                             <div className="result-header">
@@ -169,8 +195,23 @@ export default function FlightResults({ results }: FlightResultsProps) {
 
                                         {/* Mobile: Price is here in top row */}
                                         <div className="result-price mobile-price">
-                                            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
-                                            <span className="price-currency">{result.currency}</span>
+                                            {mainBookingUrl ? (
+                                                <a
+                                                    href={mainBookingUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="price-link"
+                                                    title="Book on Ryanair"
+                                                >
+                                                    <span className="price-value">{result.totalPrice.toFixed(2)}</span>
+                                                    <span className="price-currency">{result.currency}</span>
+                                                </a>
+                                            ) : (
+                                                <>
+                                                    <span className="price-value">{result.totalPrice.toFixed(2)}</span>
+                                                    <span className="price-currency">{result.currency}</span>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
 
@@ -184,8 +225,23 @@ export default function FlightResults({ results }: FlightResultsProps) {
 
                                 {/* Desktop: Price is on the right side */}
                                 <div className="result-price desktop-price">
-                                    <span className="price-value">{result.totalPrice.toFixed(2)}</span>
-                                    <span className="price-currency">{result.currency}</span>
+                                    {mainBookingUrl ? (
+                                        <a
+                                            href={mainBookingUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="price-link"
+                                            title="Book on Ryanair"
+                                        >
+                                            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
+                                            <span className="price-currency">{result.currency}</span>
+                                        </a>
+                                    ) : (
+                                        <>
+                                            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
+                                            <span className="price-currency">{result.currency}</span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -219,7 +275,20 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                 </div>
                                             </div>
                                             <div className="flight-price">
-                                                {flight.price?.value?.toFixed(2) ?? '0.00'} {flight.price?.currencyCode ?? 'EUR'}
+                                                <a
+                                                    href={getBookingUrl(
+                                                        fIdx === 0 ? result.origin : result.via!,
+                                                        fIdx === result.flights.length - 1 ? result.destination : result.via!,
+                                                        flight.departureDate
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="segment-price-link"
+                                                    title={`Book ${fIdx === 0 ? result.origin : result.via} → ${fIdx === result.flights.length - 1 ? result.destination : result.via} on Ryanair`}
+                                                >
+                                                    {flight.price?.value?.toFixed(2) ?? '0.00'} {flight.price?.currencyCode ?? 'EUR'}
+                                                    <span className="book-icon">↗</span>
+                                                </a>
                                             </div>
                                         </div>
                                         {fIdx < result.flights.length - 1 && (() => {
@@ -353,7 +422,20 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                             </div>
                                                         </div>
                                                         <div className="flight-price">
-                                                            {flight.price.value.toFixed(2)} {flight.price.currencyCode}
+                                                            <a
+                                                                href={getBookingUrl(
+                                                                    fIdx === 0 ? result.destination : result.returnFlights![0].via!,
+                                                                    fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via!,
+                                                                    flight.departureDate
+                                                                )}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="segment-price-link"
+                                                                title={`Book ${fIdx === 0 ? result.destination : result.returnFlights![0].via} → ${fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via} on Ryanair`}
+                                                            >
+                                                                {flight.price.value.toFixed(2)} {flight.price.currencyCode}
+                                                                <span className="book-icon">↗</span>
+                                                            </a>
                                                         </div>
                                                     </div>
                                                     {fIdx < result.returnFlights![0].flights.length - 1 && (() => {
