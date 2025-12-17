@@ -51,8 +51,11 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.2)),
+    linear-gradient(135deg, #5161ce 0%, #5b3687 100%);
   padding: 2rem 1rem;
+  position: relative;
 }
 
 .app-header {
