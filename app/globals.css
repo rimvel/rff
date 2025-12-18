@@ -149,24 +149,28 @@ body {
 }
 
 @media (max-width: 768px) {
+  .logo-compact {
+    font-size: 1.4rem;
+    /* Reduced by ~15% from 1.65rem */
+  }
+
   .location-group {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    /* Reduced gap */
   }
 
   .location-group .swap-button {
     align-self: center;
-    margin: -1rem 0;
-    /* Use negative vertical margin to pull inputs closer */
+    margin: -1.25rem 0 -1.5rem 0;
+    /* Asymmetric margin to pull TO field closer through the label */
     width: 2.25rem;
-    /* Slightly smaller on mobile */
     height: 2.25rem;
     padding: 0;
     transform: rotate(90deg);
     z-index: 5;
     background: var(--card-bg);
-    /* Ensure it has background to cover the gap */
     border-width: 1px;
   }
 
