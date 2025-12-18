@@ -157,25 +157,33 @@ body {
   .location-group {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.125rem;
-    /* Minimized gap for a super tight look */
+    gap: 0;
+    /* Gap managed by margins and tiny spacing */
   }
 
   .form-group {
     gap: 0;
-    /* No gap between label and input */
   }
 
   .form-group label {
-    margin-bottom: 0;
-    line-height: 1.2;
+    font-size: 0.75rem;
+    /* Smaller labels on mobile to save space */
+    margin-bottom: -0.125rem;
+    /* Pull input even closer to label */
+    line-height: 1.1;
+    opacity: 0.8;
+  }
+
+  .location-group .form-group:nth-child(3) {
+    margin-top: 0.25rem;
+    /* Very small gap between FROM input and TO label */
   }
 
   .location-group .swap-button {
     align-self: center;
     margin: -1.125rem 0;
-    transform: translateY(0.4rem) rotate(90deg);
-    /* Perfected centering for the tiny gap */
+    transform: translateY(0.8rem) rotate(90deg);
+    /* Fine-tuned to perfectly center between input boxes with tight gaps */
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
@@ -189,7 +197,21 @@ body {
   }
 
   .location-group .swap-button:hover {
-    transform: rotate(270deg);
+    transform: translateY(0.8rem) rotate(270deg);
+    /* Preserve mobile centering offset on hover */
+  }
+}
+
+.swap-button:hover {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: rotate(180deg);
+}
+
+@media (max-width: 768px) {
+  .swap-button:hover {
+    transform: translateY(0.8rem) rotate(270deg) !important;
   }
 }
 
@@ -236,11 +258,8 @@ body {
   margin-bottom: 0;
 }
 
-.swap-button:hover {
-  background: rgba(14, 165, 233, 0.1);
-  color: var(--primary);
-  border-color: var(--primary);
-  transform: rotate(180deg);
+.swap-button svg {
+  display: block;
 }
 
 .swap-button svg {
