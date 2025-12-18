@@ -150,8 +150,8 @@ body {
 
 @media (max-width: 768px) {
   .logo-compact {
-    font-size: 1.4rem;
-    /* Reduced by ~15% from 1.65rem */
+    font-size: 1.2rem;
+    /* Reduced further to meet 15% smaller target as per user feedback */
   }
 
   .location-group {
@@ -166,8 +166,8 @@ body {
   }
 
   .form-group label {
-    font-size: 0.75rem;
-    /* Smaller labels on mobile to save space */
+    font-size: 0.7rem;
+    /* Slightly smaller as requested */
     margin-bottom: -0.125rem;
     /* Pull input even closer to label */
     line-height: 1.1;
