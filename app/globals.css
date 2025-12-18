@@ -148,59 +148,7 @@ body {
   flex: 1;
 }
 
-@media (max-width: 768px) {
-  .logo-compact {
-    font-size: 1.2rem;
-    /* Reduced further to meet 15% smaller target as per user feedback */
-  }
-
-  .location-group {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    /* Gap managed by margins and tiny spacing */
-  }
-
-  .form-group {
-    gap: 0;
-  }
-
-  .form-group label {
-    font-size: 0.7rem;
-    /* Slightly smaller as requested */
-    margin-bottom: -0.125rem;
-    /* Pull input even closer to label */
-    line-height: 1.1;
-    opacity: 0.8;
-  }
-
-  .location-group .form-group:nth-child(3) {
-    margin-top: 0.25rem;
-    /* Very small gap between FROM input and TO label */
-  }
-
-  .location-group .swap-button {
-    align-self: center;
-    margin: -1.125rem 0;
-    transform: translateY(0.8rem) rotate(90deg);
-    /* Fine-tuned to perfectly center between input boxes with tight gaps */
-    width: 2.25rem;
-    height: 2.25rem;
-    padding: 0;
-    z-index: 5;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .location-group .swap-button:hover {
-    transform: translateY(0.8rem) rotate(270deg);
-    /* Preserve mobile centering offset on hover */
-  }
-}
+/* Mobile Location Group Logic moved to bottom for better consolidation */
 
 .swap-button:hover {
   background: rgba(14, 165, 233, 0.1);
@@ -1413,36 +1361,63 @@ body {
 }
 
 @media (max-width: 768px) {
-  .app-title {
-    font-size: 2rem;
+  .app-title-compact {
+    font-size: 1.4rem !important;
   }
 
-  .logo {
-    font-size: 2.5rem;
+  .app-title-compact .logo-compact {
+    font-size: 0.9rem !important;
+    margin-right: 0.4rem !important;
+  }
+
+  .form-group label,
+  .location-group label {
+    font-size: 0.6rem !important;
+    margin-bottom: 0 !important;
+    opacity: 0.7;
+  }
+
+  /* Tighten location fields further */
+  .location-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .form-group {
+    gap: 0;
+  }
+
+  .location-group .form-group:nth-child(3) {
+    margin-top: 0.1rem;
+  }
+
+  .location-group .swap-button {
+    align-self: center;
+    margin: -1.125rem 0;
+    transform: translateY(0.7rem) rotate(90deg) !important;
+    width: 2.25rem;
+    height: 2.25rem;
+    z-index: 5;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+  }
+
+  .location-group .swap-button:hover,
+  .location-group .swap-button:active {
+    transform: translateY(0.7rem) rotate(270deg) !important;
   }
 
   .search-form {
     grid-template-columns: 1fr;
-    padding: 1.5rem;
+    padding: 0.875rem;
+    gap: 0.5rem;
   }
 
   .form-options {
     flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .date-range-selector {
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .flight-info {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .flight-time {
-    width: 100%;
+    gap: 0.5rem;
   }
 }
 
