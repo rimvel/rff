@@ -157,23 +157,28 @@ body {
   .location-group {
     flex-direction: column;
     align-items: stretch;
-    gap: 1.25rem;
-    /* Increased to ensure clear separation and no label overlap */
+    gap: 0.125rem;
+    /* Minimized gap for a super tight look */
   }
 
   .form-group {
-    gap: 0.125rem;
-    /* Keep labels close to inputs */
+    gap: 0;
+    /* No gap between label and input */
+  }
+
+  .form-group label {
+    margin-bottom: 0;
+    line-height: 1.2;
   }
 
   .location-group .swap-button {
     align-self: center;
-    margin: -1.5rem 0;
-    /* Centered between the fields */
+    margin: -1.125rem 0;
+    transform: translateY(0.4rem) rotate(90deg);
+    /* Perfected centering for the tiny gap */
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
-    transform: rotate(90deg);
     z-index: 5;
     background: var(--card-bg);
     border: 1px solid var(--border);
