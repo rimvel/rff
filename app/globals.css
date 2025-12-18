@@ -157,21 +157,30 @@ body {
   .location-group {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.25rem;
-    /* Reduced gap */
+    gap: 0;
+    /* No gap between groups, handled by margins */
+  }
+
+  .form-group {
+    gap: 0.125rem;
+    /* Move labels closer to inputs */
   }
 
   .location-group .swap-button {
     align-self: center;
-    margin: -1.25rem 0 -1.5rem 0;
-    /* Asymmetric margin to pull TO field closer through the label */
+    margin: -1.125rem 0 -1.875rem 0;
+    /* Pull TO group up significantly to center button between inputs */
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
     transform: rotate(90deg);
     z-index: 5;
     background: var(--card-bg);
-    border-width: 1px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .location-group .swap-button:hover {
