@@ -89,14 +89,16 @@ body {
 
 .logo {
   display: inline-block;
-  font-size: 2.75rem;
+  font-size: 2.25rem;
+  /* Reduced further from 2.75rem */
   margin-right: 0.5rem;
   animation: bounce 2s infinite;
 }
 
 .logo-compact {
   display: inline-block;
-  font-size: 2.0rem;
+  font-size: 1.65rem;
+  /* Reduced further from 2.0rem to hit ~18% reduction target */
   margin-right: 0.75rem;
 }
 
@@ -155,11 +157,17 @@ body {
 
   .location-group .swap-button {
     align-self: center;
-    margin: 0;
-    width: 2.5rem;
-    height: 2.5rem;
+    margin: -1rem 0;
+    /* Use negative vertical margin to pull inputs closer */
+    width: 2.25rem;
+    /* Slightly smaller on mobile */
+    height: 2.25rem;
+    padding: 0;
     transform: rotate(90deg);
     z-index: 5;
+    background: var(--card-bg);
+    /* Ensure it has background to cover the gap */
+    border-width: 1px;
   }
 
   .location-group .swap-button:hover {
@@ -376,26 +384,30 @@ body {
 
 .clear-input-btn {
   position: absolute;
-  right: 0.75rem;
+  right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   color: var(--foreground);
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: pointer;
-  padding: 0.25rem;
+  padding: 0 !important;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1;
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
   z-index: 2;
 }
 
 .clear-input-btn:hover {
   opacity: 1;
+  transform: translateY(-50%) scale(1.1);
 }
 
 .autocomplete-dropdown {
