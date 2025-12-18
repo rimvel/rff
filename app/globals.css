@@ -157,19 +157,19 @@ body {
   .location-group {
     flex-direction: column;
     align-items: stretch;
-    gap: 0;
-    /* No gap between groups, handled by margins */
+    gap: 1.25rem;
+    /* Increased to ensure clear separation and no label overlap */
   }
 
   .form-group {
     gap: 0.125rem;
-    /* Move labels closer to inputs */
+    /* Keep labels close to inputs */
   }
 
   .location-group .swap-button {
     align-self: center;
-    margin: -1.125rem 0 -1.875rem 0;
-    /* Pull TO group up significantly to center button between inputs */
+    margin: -1.5rem 0;
+    /* Centered between the fields */
     width: 2.25rem;
     height: 2.25rem;
     padding: 0;
