@@ -814,6 +814,9 @@ body {
   border-radius: 1rem;
   box-shadow: var(--shadow-lg);
   animation: fadeIn 0.3s ease-out;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .spinner {
