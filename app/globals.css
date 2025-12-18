@@ -1419,6 +1419,28 @@ body {
     flex-direction: column;
     gap: 0.5rem;
   }
+
+  .time {
+    font-size: 0.85rem !important;
+  }
+
+  .airport {
+    font-size: 0.7rem !important;
+  }
+
+  .flight-number {
+    font-size: 0.6rem !important;
+  }
+
+  .connection-info {
+    font-size: 0.8rem !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  .badge {
+    font-size: 0.65rem !important;
+    padding: 0.15rem 0.5rem !important;
+  }
 }
 
 .theme-toggle-btn {
