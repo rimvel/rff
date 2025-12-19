@@ -1,18 +1,19 @@
-<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <circle cx="50" cy="50" r="50" fill="url(#logo-gradient)" />
-  <!-- Layover Flight Path -->
-  <path d="M25,65 C30,45 45,45 50,55 C55,65 70,65 75,40" 
-        fill="none" stroke="white" stroke-width="5" stroke-dasharray="6,4" stroke-linecap="round" />
-  <!-- Layover Hub -->
-  <circle cx="50" cy="55" r="7" fill="white" />
-  <!-- Airplane Silhouette -->
-  <g transform="translate(75,40) rotate(-35)">
-    <path d="M0,-10 L3,2 L10,2 L3,5 L6,12 L0,8 L-6,12 L-3,5 L-10,2 L-3,2 Z" fill="white" />
+  <!-- Main circle - exactly touching edges to avoid extra space -->
+  <circle cx="256" cy="256" r="256" fill="url(#logo-grad)" />
+  <!-- High-quality flight path with connection -->
+  <path d="M120,360 C180,220 256,220 256,280 C256,340 332,340 380,160" 
+        fill="none" stroke="white" stroke-width="24" stroke-dasharray="45,25" stroke-linecap="round" />
+  <!-- Connection node -->
+  <circle cx="256" cy="280" r="35" fill="white" />
+  <!-- Professional airplane silhouette -->
+  <g transform="translate(380,160) rotate(-40)">
+    <path fill="white" d="M0,-45 L6,-15 L40,-5 L6,5 L12,40 L0,20 L-12,40 L-6,5 L-40,-5 L-6,-15 Z" />
   </g>
 </svg>
