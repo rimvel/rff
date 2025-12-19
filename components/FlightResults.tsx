@@ -181,11 +181,6 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                     <div className="header-top-row">
                                         <div className="badge-group">
                                             <span className="badge direction-badge">DEPARTURE</span>
-                                            {result.carrier && (
-                                                <span className={`badge ${result.carrier.toLowerCase()}-badge`} style={{ backgroundColor: result.carrier === 'Wizzair' ? '#c6007e' : '#073590', color: 'white' }}>
-                                                    {result.carrier.toUpperCase()}
-                                                </span>
-                                            )}
                                             <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
                                                 {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
                                             </span>
@@ -210,7 +205,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="price-link"
-                                                    title={`Book on ${result.carrier || 'Ryanair'}`}
+                                                    title="Book official flights"
                                                 >
                                                     <span className="price-value">{result.totalPrice.toFixed(2)}</span>
                                                     <span className="price-currency">{result.currency}</span>
@@ -240,7 +235,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="price-link"
-                                            title={`Book on ${result.carrier || 'Ryanair'}`}
+                                            title="Book official flights"
                                         >
                                             <span className="price-value">{result.totalPrice.toFixed(2)}</span>
                                             <span className="price-currency">{result.currency}</span>
@@ -294,7 +289,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="segment-price-link"
-                                                    title={`Book ${fIdx === 0 ? result.origin : result.via} → ${fIdx === result.flights.length - 1 ? result.destination : result.via} on Ryanair`}
+                                                    title={`Book ${fIdx === 0 ? result.origin : result.via} → ${fIdx === result.flights.length - 1 ? result.destination : result.via}`}
                                                 >
                                                     {flight.price?.value?.toFixed(2) ?? '0.00'} {flight.price?.currencyCode ?? 'EUR'}
                                                     <span className="book-icon">↗</span>
@@ -441,7 +436,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="segment-price-link"
-                                                                title={`Book ${fIdx === 0 ? result.destination : result.returnFlights![0].via} → ${fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via} on Ryanair`}
+                                                                title={`Book ${fIdx === 0 ? result.destination : result.returnFlights![0].via} → ${fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via}`}
                                                             >
                                                                 {flight.price.value.toFixed(2)} {flight.price.currencyCode}
                                                                 <span className="book-icon">↗</span>
