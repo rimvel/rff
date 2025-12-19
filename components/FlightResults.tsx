@@ -24,6 +24,7 @@ interface RouteResult {
     searchDate?: string;
     isRoundTrip?: boolean;
     returnFlights?: RouteResult[];
+    carrier?: string;
 }
 
 interface FlightResultsProps {
@@ -55,8 +56,11 @@ function formatDateTime(dateStr: string): string {
     });
 }
 
-function getBookingUrl(origin: string, destination: string, dateStr: string): string {
+function getBookingUrl(origin: string, destination: string, dateStr: string, carrier?: string): string {
     const date = new Date(dateStr).toISOString().split('T')[0];
+    if (carrier === 'Wizzair') {
+        return `https://wizzair.com/en-gb/booking/select-flight/${origin}/${destination}/${date}/null/1/0/0`;
+    }
     return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${date}&roundtrip=false`;
 }
 
@@ -159,7 +163,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
 
                     let mainBookingUrl = '';
                     if (isSimpleDirect) {
-                        mainBookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate);
+                        mainBookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate, result.carrier);
                     } else if (isSimpleRoundTripDirect) {
                         mainBookingUrl = getRoundTripBookingUrl(
                             result.origin,
@@ -177,6 +181,11 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                     <div className="header-top-row">
                                         <div className="badge-group">
                                             <span className="badge direction-badge">DEPARTURE</span>
+                                            {result.carrier && (
+                                                <span className={`badge ${result.carrier.toLowerCase()}-badge`} style={{ backgroundColor: result.carrier === 'Wizzair' ? '#c6007e' : '#073590', color: 'white' }}>
+                                                    {result.carrier.toUpperCase()}
+                                                </span>
+                                            )}
                                             <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
                                                 {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
                                             </span>
@@ -201,7 +210,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="price-link"
-                                                    title="Book on Ryanair"
+                                                    title={`Book on ${result.carrier || 'Ryanair'}`}
                                                 >
                                                     <span className="price-value">{result.totalPrice.toFixed(2)}</span>
                                                     <span className="price-currency">{result.currency}</span>
@@ -231,7 +240,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="price-link"
-                                            title="Book on Ryanair"
+                                            title={`Book on ${result.carrier || 'Ryanair'}`}
                                         >
                                             <span className="price-value">{result.totalPrice.toFixed(2)}</span>
                                             <span className="price-currency">{result.currency}</span>
@@ -279,7 +288,8 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     href={getBookingUrl(
                                                         fIdx === 0 ? result.origin : result.via!,
                                                         fIdx === result.flights.length - 1 ? result.destination : result.via!,
-                                                        flight.departureDate
+                                                        flight.departureDate,
+                                                        result.carrier
                                                     )}
                                                     target="_blank"
                                                     rel="noopener noreferrer"

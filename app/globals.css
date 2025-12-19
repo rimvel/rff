@@ -75,7 +75,8 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
+  text-transform: uppercase;
   animation: fadeIn 0.8s ease-out;
 }
 
@@ -83,7 +84,8 @@ body {
   font-size: 2.25rem;
   font-weight: 800;
   color: white;
-  margin-bottom: 0.25rem;
+  margin-bottom: -0.25rem;
+  text-transform: uppercase;
   animation: fadeIn 0.8s ease-out;
 }
 

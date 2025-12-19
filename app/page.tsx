@@ -16,6 +16,7 @@ interface RouteResult {
   duration: number;
   returnFlights?: any[];
   isRoundTrip?: boolean;
+  carrier?: string;
 }
 
 export default function Home() {
@@ -62,7 +63,7 @@ export default function Home() {
         <h1 className="app-title-compact">
           <a href="/" className="no-underline text-current">
             <span className="logo-compact">✈️</span>
-            Ryanair Flight Finder
+            RYANAIR FLIGHT FINDER
           </a>
         </h1>
         <p className="app-subtitle">beyond direct flights</p>

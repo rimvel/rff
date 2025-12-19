@@ -1,15 +1,16 @@
-
 import { getOneWayFares, getRoutes, Flight } from './ryanair';
+import { searchWizzairFlights, WizzFlightResult } from './wizzair';
 
 export interface RouteResult {
     type: 'direct' | 'layover';
     origin: string;
     destination: string;
     via?: string;
-    flights: Flight[];
+    flights: (Flight | WizzFlightResult)[];
     totalPrice: number;
     currency: string;
     duration: number; // in minutes
+    carrier?: string; // flight carrier
 }
 
 const MIN_CONNECTION_MINUTES = 120; // 2 hours
@@ -24,36 +25,61 @@ function getDurationInMinutes(start: string, end: string): number {
 export async function findCheapestRoutes(origin: string, dest: string, date: string): Promise<RouteResult[]> {
     const results: RouteResult[] = [];
 
-    // 1. Direct Flight
+    // 1. Direct Flight (Ryanair & Wizzair in parallel)
     try {
-        const directFlight = await getOneWayFares(origin, dest, date);
-        if (directFlight) {
+        const [ryanairFlight] = await Promise.all([
+            getOneWayFares(origin, dest, date).catch(e => {
+                console.error('Ryanair direct search failed', e);
+                return null;
+            }),
+            // searchWizzairFlights(origin, dest, date).catch(e => {
+            //     console.error('Wizzair direct search failed', e);
+            //     return [] as WizzFlightResult[];
+            // })
+        ]);
+        const wizzairFlights: WizzFlightResult[] = [];
+
+        if (ryanairFlight) {
             results.push({
                 type: 'direct',
                 origin,
                 destination: dest,
-                flights: [directFlight],
-                totalPrice: directFlight.price.value,
-                currency: directFlight.price.currencyCode,
-                duration: getDurationInMinutes(directFlight.departureDate, directFlight.arrivalDate),
+                flights: [ryanairFlight],
+                totalPrice: ryanairFlight.price.value,
+                currency: ryanairFlight.price.currencyCode,
+                duration: getDurationInMinutes(ryanairFlight.departureDate, ryanairFlight.arrivalDate),
+                carrier: 'Ryanair'
             });
         }
+
+        if (wizzairFlights && wizzairFlights.length > 0) {
+            for (const f of wizzairFlights) {
+                results.push({
+                    type: 'direct',
+                    origin,
+                    destination: dest,
+                    flights: [f],
+                    totalPrice: f.price.value,
+                    currency: f.price.currencyCode,
+                    duration: getDurationInMinutes(f.departureDate, f.arrivalDate),
+                    carrier: 'Wizzair'
+                });
+            }
+        }
+
     } catch (e) {
-        console.error('Error fetching direct flight', e);
+        console.error('Error fetching direct flights', e);
     }
 
-    // 2. Layover Flights
+    // 2. Layover Flights (Currently only Ryanair Hubs)
     try {
+        // ... (existing layover logic which assumes Ryanair)
         const [routesFromOrigin, routesFromDest] = await Promise.all([
             getRoutes(origin),
-            getRoutes(dest), // This gets destinations FROM dest. Assuming symmetry.
+            getRoutes(dest),
         ]);
 
-        // Intersection: Hubs that are destinations from Origin AND destinations from Dest (meaning Dest is a destination from Hub if symmetric)
-        // Wait, if A->C exists, and B->C exists (from getRoutes(B)), does that mean C->B exists?
-        // Usually yes.
         const hubs = routesFromOrigin.filter(hub => routesFromDest.includes(hub));
-        console.log(`Found ${hubs.length} potential hubs: ${hubs.join(', ')}`);
 
         // Limit concurrency
         const CONCURRENCY_LIMIT = 5;
@@ -66,15 +92,12 @@ export async function findCheapestRoutes(origin: string, dest: string, date: str
             await Promise.all(chunk.map(async (hub) => {
                 if (hub === origin || hub === dest) return;
 
-                // Fetch A->Hub and Hub->B
-                // We need Hub->B. We assumed symmetry.
                 const [flightA, flightB] = await Promise.all([
                     getOneWayFares(origin, hub, date),
-                    getOneWayFares(hub, dest, date), // This checks Hub->Dest
+                    getOneWayFares(hub, dest, date),
                 ]);
 
                 if (flightA && flightB) {
-                    // Check connection time
                     const arrivalA = new Date(flightA.arrivalDate).getTime();
                     const departureB = new Date(flightB.departureDate).getTime();
                     const diffMinutes = (departureB - arrivalA) / 60000;
@@ -89,6 +112,7 @@ export async function findCheapestRoutes(origin: string, dest: string, date: str
                             totalPrice: flightA.price.value + flightB.price.value,
                             currency: flightA.price.currencyCode,
                             duration: getDurationInMinutes(flightA.departureDate, flightB.arrivalDate),
+                            carrier: 'Ryanair (Layover)'
                         });
                     }
                 }
