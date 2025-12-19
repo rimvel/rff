@@ -99,11 +99,12 @@ body {
 
 .logo-img-compact {
   display: inline-block;
-  height: 2.5rem;
+  height: 1.5rem;
+  /* Reduced from 2.5rem */
   width: auto;
   vertical-align: middle;
-  margin-right: 0.75rem;
-  margin-top: -0.25rem;
+  margin-right: 0.5rem;
+  margin-top: -0.2rem;
 }
 
 .app-subtitle {
