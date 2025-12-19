@@ -46,6 +46,10 @@ interface Airport {
         name: string;
         code: string;
     };
+    region?: {
+        name: string;
+        code: string;
+    };
 }
 
 function formatDuration(minutes: number): string {

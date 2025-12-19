@@ -17,6 +17,10 @@ interface Airport {
         name: string;
         code: string;
     };
+    region?: {
+        name: string;
+        code: string;
+    };
 }
 
 export interface SearchFormState {
@@ -132,12 +136,73 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
         return Array.from(cityMap.values());
     };
 
+    // Virtual Regions mapping
+    const getVirtualRegions = () => {
+        const regions: { name: string; countryCode: string; airportCodes: string[] }[] = [];
+
+        // Define groupings based on Ryanair's region names
+        const groups = [
+            {
+                name: 'Spain South',
+                countryCode: 'es',
+                match: ['Andalusia', 'Costa del Sol', 'Costa Calida', 'Costa Blanca']
+            },
+            {
+                name: 'Spain North',
+                countryCode: 'es',
+                match: ['Galicia', 'Cantabria', 'Costa Brava', 'Costa Dorada', 'Costa Azahar', 'Aragon']
+            },
+            {
+                name: 'Spain Islands',
+                countryCode: 'es',
+                match: ['Balearic Islands', 'Canary Isles']
+            },
+            {
+                name: 'Italy North',
+                countryCode: 'it',
+                match: ['Lombardy', 'Veneto', 'Piedmont', 'Friuli-Venezia Giulia', 'Liguria', 'Emilia-Romagna', 'Tuscany']
+            },
+            {
+                name: 'Italy South',
+                countryCode: 'it',
+                match: ['Campania', 'Puglia', 'Calabria', 'Sicily', 'Sardinia', 'Abruzzo', 'Lazio']
+            },
+            {
+                name: 'Greece Islands',
+                countryCode: 'gr',
+                match: ['Greek Islands']
+            },
+            {
+                name: 'Portugal Coast',
+                countryCode: 'pt',
+                match: ['Algarve', 'Lisbon']
+            }
+        ];
+
+        groups.forEach(group => {
+            const airportCodes = airports
+                .filter(a => a.country.code === group.countryCode && a.region && group.match.includes(a.region.name))
+                .map(a => a.code);
+
+            if (airportCodes.length > 0) {
+                regions.push({
+                    name: group.name,
+                    countryCode: group.countryCode,
+                    airportCodes
+                });
+            }
+        });
+
+        return regions;
+    };
+
     const filterAirports = (search: string): {
         airports: Airport[];
         countries: { name: string; code: string; airportCodes: string[] }[];
-        cities: { name: string; countryCode: string; airportCodes: string[] }[]
+        cities: { name: string; countryCode: string; airportCodes: string[] }[];
+        virtualRegions: { name: string; countryCode: string; airportCodes: string[] }[];
     } => {
-        if (!search) return { airports: [], countries: [], cities: [] };
+        if (!search) return { airports: [], countries: [], cities: [], virtualRegions: [] };
         const s = search.toLowerCase();
 
         // Filter individual airports
@@ -161,7 +226,13 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
             c.name.toLowerCase().includes(s) && c.airportCodes.length > 1
         );
 
-        return { airports: matchingAirports, countries: matchingCountries, cities: matchingCities };
+        // Check if search matches a virtual region
+        const virtualRegions = getVirtualRegions();
+        const matchingVirtualRegions = virtualRegions.filter(r =>
+            r.name.toLowerCase().includes(s)
+        );
+
+        return { airports: matchingAirports, countries: matchingCountries, cities: matchingCities, virtualRegions: matchingVirtualRegions };
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -218,6 +289,9 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
             if (originFiltered.cities.length > 0) {
                 const city = originFiltered.cities[0];
                 selectOriginCity(city);
+            } else if (originFiltered.virtualRegions.length > 0) {
+                const region = originFiltered.virtualRegions[0];
+                selectOriginVirtualRegion(region);
             } else if (originFiltered.countries.length > 0) {
                 const country = originFiltered.countries[0];
                 selectOriginCountry(country);
@@ -235,6 +309,9 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
             if (destFiltered.cities.length > 0) {
                 const city = destFiltered.cities[0];
                 selectDestCity(city);
+            } else if (destFiltered.virtualRegions.length > 0) {
+                const region = destFiltered.virtualRegions[0];
+                selectDestVirtualRegion(region);
             } else if (destFiltered.countries.length > 0) {
                 const country = destFiltered.countries[0];
                 selectDestCountry(country);
@@ -256,6 +333,21 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
     const selectDestCountry = (country: { name: string; code: string; airportCodes: string[] }) => {
         setDest(country.airportCodes.join(','));
         setDestSearch(`${country.name} - All (${country.airportCodes.length})`);
+        setShowDestDropdown(false);
+    };
+
+    // Select all airports in a virtual region for origin
+    const selectOriginVirtualRegion = (region: { name: string; countryCode: string; airportCodes: string[] }) => {
+        setOrigin(region.airportCodes.join(','));
+        setOriginSearch(`${region.name} - All (${region.airportCodes.length})`);
+        setShowOriginDropdown(false);
+        setTimeout(() => destInputRef.current?.focus(), 0);
+    };
+
+    // Select all airports in a virtual region for destination
+    const selectDestVirtualRegion = (region: { name: string; countryCode: string; airportCodes: string[] }) => {
+        setDest(region.airportCodes.join(','));
+        setDestSearch(`${region.name} - All (${region.airportCodes.length})`);
         setShowDestDropdown(false);
     };
 
@@ -310,9 +402,23 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                                 ✕
                             </button>
                         )}
-                        {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.cities.length > 0 || originFiltered.airports.length > 0) && (
+                        {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.cities.length > 0 || originFiltered.airports.length > 0 || originFiltered.virtualRegions.length > 0) && (
                             <div className="autocomplete-dropdown">
-                                {/* Show city options first */}
+                                {/* Show regional options first */}
+                                {originFiltered.virtualRegions.map(region => (
+                                    <div
+                                        key={`vregion-${region.name}`}
+                                        className="autocomplete-item autocomplete-city"
+                                        onClick={() => selectOriginVirtualRegion(region)}
+                                    >
+                                        <span className="flag-icon">{getFlagEmoji(region.countryCode)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{region.name}</strong>
+                                            <span className="autocomplete-sub">Regional Group ({region.airportCodes.length} airports)</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {/* Show city options */}
                                 {originFiltered.cities.map(city => (
                                     <div
                                         key={`city-${city.name}-${city.countryCode}`}
@@ -409,9 +515,23 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                                 ✕
                             </button>
                         )}
-                        {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.cities.length > 0 || destFiltered.airports.length > 0) && (
+                        {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.cities.length > 0 || destFiltered.airports.length > 0 || destFiltered.virtualRegions.length > 0) && (
                             <div className="autocomplete-dropdown">
-                                {/* Show city options first */}
+                                {/* Show regional options first */}
+                                {destFiltered.virtualRegions.map(region => (
+                                    <div
+                                        key={`vregion-${region.name}`}
+                                        className="autocomplete-item autocomplete-city"
+                                        onClick={() => selectDestVirtualRegion(region)}
+                                    >
+                                        <span className="flag-icon">{getFlagEmoji(region.countryCode)}</span>
+                                        <div className="autocomplete-text">
+                                            <strong>{region.name}</strong>
+                                            <span className="autocomplete-sub">Regional Group ({region.airportCodes.length} airports)</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {/* Show city options */}
                                 {destFiltered.cities.map(city => (
                                     <div
                                         key={`city-${city.name}-${city.countryCode}`}

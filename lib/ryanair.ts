@@ -17,6 +17,10 @@ export interface Airport {
         name: string;
         code: string;
     };
+    region?: {
+        name: string;
+        code: string;
+    };
 }
 
 export interface Route {
