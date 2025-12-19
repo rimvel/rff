@@ -13,6 +13,10 @@ interface Airport {
         name: string;
         code: string;
     };
+    macCity?: {
+        name: string;
+        code: string;
+    };
 }
 
 export interface SearchFormState {
@@ -105,12 +109,14 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
         return Array.from(countryMap.values());
     };
 
-    // Get unique cities from airports
+    // Get unique cities from airports (using macCity for grouping when available)
     const getCitiesWithAirports = () => {
         const cityMap = new Map<string, { name: string; countryCode: string; airportCodes: string[] }>();
 
         airports.forEach(airport => {
-            const cityName = airport.city.name;
+            // Priority: macCity (Metropolitan Area) > city
+            const city = airport.macCity || airport.city;
+            const cityName = city.name;
             const cityKey = `${cityName}-${airport.country.code}`; // Unique city per country
 
             if (!cityMap.has(cityKey)) {
@@ -139,7 +145,8 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
             a.code.toLowerCase().includes(s) ||
             a.name.toLowerCase().includes(s) ||
             a.country.name.toLowerCase().includes(s) ||
-            a.city.name.toLowerCase().includes(s)
+            a.city.name.toLowerCase().includes(s) ||
+            (a.macCity && a.macCity.name.toLowerCase().includes(s))
         ).sort((a, b) => a.country.name.localeCompare(b.country.name));
 
         // Check if search matches a country name

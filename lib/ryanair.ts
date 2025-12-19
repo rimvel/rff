@@ -13,6 +13,10 @@ export interface Airport {
         name: string;
         code: string;
     };
+    macCity?: {
+        name: string;
+        code: string;
+    };
 }
 
 export interface Route {

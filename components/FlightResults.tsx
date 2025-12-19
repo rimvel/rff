@@ -38,6 +38,14 @@ interface Airport {
         name: string;
         code: string;
     };
+    city: {
+        name: string;
+        code: string;
+    };
+    macCity?: {
+        name: string;
+        code: string;
+    };
 }
 
 function formatDuration(minutes: number): string {
