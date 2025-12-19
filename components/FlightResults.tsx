@@ -264,10 +264,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                             {/* Vilnius Balloon Risk Warning */}
                             {hasRisk && (
                                 <div className="vilnius-balloon-warning">
-                                    <span className="warning-label">💡 Notice</span>
-                                    <p className="warning-text">
-                                        🎈 Cancellation risk (19:00-03:00) due to meteorological balloons
-                                    </p>
+                                    Cancellation risk (19:00-03:00) due to meteorological balloons at VNO 🎈
                                 </div>
                             )}
 
