@@ -10,6 +10,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Ryanair Flight Finder - beyond direct flights",
   description: "Find the cheapest Ryanair flights with smart layover detection",
+  icons: {
+    icon: "/logo.svg?v=2",
+    shortcut: "/logo.svg?v=2",
+    apple: "/logo.svg?v=2",
+  },
 };
 
 export default function RootLayout({

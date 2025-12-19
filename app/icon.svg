@@ -5,15 +5,12 @@
       <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <!-- Main circle - exactly touching edges to avoid extra space -->
-  <circle cx="256" cy="256" r="256" fill="url(#logo-grad)" />
-  <!-- High-quality flight path with connection -->
-  <path d="M120,360 C180,220 256,220 256,280 C256,340 332,340 380,160" 
-        fill="none" stroke="white" stroke-width="24" stroke-dasharray="45,25" stroke-linecap="round" />
-  <!-- Connection node -->
-  <circle cx="256" cy="280" r="35" fill="white" />
-  <!-- Professional airplane silhouette -->
-  <g transform="translate(380,160) rotate(-40)">
-    <path fill="white" d="M0,-45 L6,-15 L40,-5 L6,5 L12,40 L0,20 L-12,40 L-6,5 L-40,-5 L-6,-15 Z" />
+  <!-- Circle with 5% padding to explicitly show transparency around it -->
+  <circle cx="256" cy="256" r="230" fill="url(#logo-grad)" />
+  <path d="M140,340 C190,240 256,240 256,280 C256,330 310,330 360,180" 
+        fill="none" stroke="white" stroke-width="20" stroke-dasharray="40,20" stroke-linecap="round" />
+  <circle cx="256" cy="280" r="30" fill="white" />
+  <g transform="translate(360,180) rotate(-40)">
+    <path fill="white" d="M0,-40 L5,-12 L35,-4 L5,4 L10,35 L0,18 L-10,35 L-5,4 L-35,-4 L-5,-12 Z" />
   </g>
 </svg>
