@@ -97,11 +97,13 @@ body {
   animation: bounce 2s infinite;
 }
 
-.logo-compact {
+.logo-img-compact {
   display: inline-block;
-  font-size: 1.65rem;
-  /* Reduced further from 2.0rem to hit ~18% reduction target */
+  height: 2.5rem;
+  width: auto;
+  vertical-align: middle;
   margin-right: 0.75rem;
+  margin-top: -0.25rem;
 }
 
 .app-subtitle {

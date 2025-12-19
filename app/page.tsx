@@ -62,7 +62,7 @@ export default function Home() {
       <header className="app-header-compact">
         <h1 className="app-title-compact">
           <a href="/" className="no-underline text-current">
-            <span className="logo-compact">✈️</span>
+            <img src="/logo.png" alt="Logo" className="logo-img-compact" />
             RYANAIR FLIGHT FINDER
           </a>
         </h1>
