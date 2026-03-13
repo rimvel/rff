@@ -50,11 +50,8 @@ function formatDateTime(dateStr: string): string {
     });
 }
 
-function getBookingUrl(origin: string, destination: string, dateStr: string, carrier?: string): string {
+function getBookingUrl(origin: string, destination: string, dateStr: string): string {
     const date = new Date(dateStr).toISOString().split('T')[0];
-    if (carrier === 'Wizzair') {
-        return `https://wizzair.com/en-gb/booking/select-flight/${origin}/${destination}/${date}/null/1/0/0`;
-    }
     return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${date}&roundtrip=false`;
 }
 
@@ -152,7 +149,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
 
                     let mainBookingUrl = '';
                     if (isSimpleDirect) {
-                        mainBookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate, result.carrier);
+                        mainBookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate);
                     } else if (isSimpleRoundTripDirect) {
                         mainBookingUrl = getRoundTripBookingUrl(
                             result.origin,
@@ -269,8 +266,7 @@ export default function FlightResults({ results }: FlightResultsProps) {
                                                     href={getBookingUrl(
                                                         fIdx === 0 ? result.origin : result.via!,
                                                         fIdx === result.flights.length - 1 ? result.destination : result.via!,
-                                                        flight.departureDate,
-                                                        result.carrier
+                                                        flight.departureDate
                                                     )}
                                                     target="_blank"
                                                     rel="noopener noreferrer"

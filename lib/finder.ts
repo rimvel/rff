@@ -1,12 +1,11 @@
 import { getOneWayFares, getRoutes, Flight } from './ryanair';
-import { searchWizzairFlights, WizzFlightResult } from './wizzair';
 
 export interface RouteResult {
     type: 'direct' | 'layover';
     origin: string;
     destination: string;
     via?: string;
-    flights: (Flight | WizzFlightResult)[];
+    flights: Flight[];
     totalPrice: number;
     currency: string;
     duration: number; // in minutes
@@ -25,19 +24,12 @@ function getDurationInMinutes(start: string, end: string): number {
 export async function findCheapestRoutes(origin: string, dest: string, date: string): Promise<RouteResult[]> {
     const results: RouteResult[] = [];
 
-    // 1. Direct Flight (Ryanair & Wizzair in parallel)
+    // 1. Direct Flight
     try {
-        const [ryanairFlight] = await Promise.all([
-            getOneWayFares(origin, dest, date).catch(e => {
-                console.error('Ryanair direct search failed', e);
-                return null;
-            }),
-            // searchWizzairFlights(origin, dest, date).catch(e => {
-            //     console.error('Wizzair direct search failed', e);
-            //     return [] as WizzFlightResult[];
-            // })
-        ]);
-        const wizzairFlights: WizzFlightResult[] = [];
+        const ryanairFlight = await getOneWayFares(origin, dest, date).catch(e => {
+            console.error('Ryanair direct search failed', e);
+            return null;
+        });
 
         if (ryanairFlight) {
             results.push({
@@ -51,29 +43,12 @@ export async function findCheapestRoutes(origin: string, dest: string, date: str
                 carrier: 'Ryanair'
             });
         }
-
-        if (wizzairFlights && wizzairFlights.length > 0) {
-            for (const f of wizzairFlights) {
-                results.push({
-                    type: 'direct',
-                    origin,
-                    destination: dest,
-                    flights: [f],
-                    totalPrice: f.price.value,
-                    currency: f.price.currencyCode,
-                    duration: getDurationInMinutes(f.departureDate, f.arrivalDate),
-                    carrier: 'Wizzair'
-                });
-            }
-        }
-
     } catch (e) {
         console.error('Error fetching direct flights', e);
     }
 
-    // 2. Layover Flights (Currently only Ryanair Hubs)
+    // 2. Layover Flights via Ryanair Hubs
     try {
-        // ... (existing layover logic which assumes Ryanair)
         const [routesFromOrigin, routesFromDest] = await Promise.all([
             getRoutes(origin),
             getRoutes(dest),
