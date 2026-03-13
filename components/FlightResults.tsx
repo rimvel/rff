@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { useAirports } from '@/lib/useAirports';
 
 interface Flight {
     departureDate: string;
@@ -31,26 +32,7 @@ interface FlightResultsProps {
     results: RouteResult[];
 }
 
-interface Airport {
-    code: string;
-    name: string;
-    country: {
-        name: string;
-        code: string;
-    };
-    city: {
-        name: string;
-        code: string;
-    };
-    macCity?: {
-        name: string;
-        code: string;
-    };
-    region?: {
-        name: string;
-        code: string;
-    };
-}
+// Airport type is imported from @/lib/useAirports
 
 function formatDuration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
@@ -135,20 +117,15 @@ function checkVilniusBalloonRisk(result: RouteResult): { hasRisk: boolean; riskT
 }
 
 export default function FlightResults({ results }: FlightResultsProps) {
-    const [airportNames, setAirportNames] = useState<Record<string, string>>({});
+    const { airports } = useAirports();
 
-    useEffect(() => {
-        fetch('/api/airports')
-            .then(res => res.json())
-            .then((data: Airport[]) => {
-                const map: Record<string, string> = {};
-                data.forEach(a => {
-                    map[a.code] = a.name;
-                });
-                setAirportNames(map);
-            })
-            .catch(err => console.error('Failed to fetch airports:', err));
-    }, []);
+    const airportNames = useMemo(() => {
+        const map: Record<string, string> = {};
+        airports.forEach(a => {
+            map[a.code] = a.name;
+        });
+        return map;
+    }, [airports]);
 
     const getCityName = (code: string) => {
         return airportNames[code] || code;

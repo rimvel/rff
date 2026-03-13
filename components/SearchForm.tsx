@@ -1,27 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
+import { useAirports, Airport } from '@/lib/useAirports';
 
-interface Airport {
-    code: string;
-    name: string;
-    country: {
-        name: string;
-        code: string;
-    };
-    city: {
-        name: string;
-        code: string;
-    };
-    macCity?: {
-        name: string;
-        code: string;
-    };
-    region?: {
-        name: string;
-        code: string;
-    };
-}
+// Airport type is imported from @/lib/useAirports
 
 export interface SearchFormState {
     origin: string;
@@ -57,7 +39,7 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
         return tomorrow.toISOString().split('T')[0];
     };
 
-    const [airports, setAirports] = useState<Airport[]>([]);
+    const { airports } = useAirports();
     const [origin, setOrigin] = useState(initialValues?.origin || '');
     const [dest, setDest] = useState(initialValues?.dest || '');
     const [date, setDate] = useState(initialValues?.date || getTomorrowDate());
@@ -84,13 +66,6 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
     // Refs for input fields
     const originInputRef = useRef<HTMLInputElement>(null);
     const destInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        fetch('/api/airports')
-            .then(res => res.json())
-            .then(data => setAirports(data))
-            .catch(err => console.error('Failed to load airports', err));
-    }, []);
 
     // Get unique countries from airports
     const getCountriesWithAirports = () => {
