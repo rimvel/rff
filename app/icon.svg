@@ -1,16 +1,28 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="grad1" x1="0%" y1="100%" x2="100%" y2="0%">
       <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <!-- Circle with 5% padding to explicitly show transparency around it -->
-  <circle cx="256" cy="256" r="230" fill="url(#logo-grad)" />
-  <path d="M140,340 C190,240 256,240 256,280 C256,330 310,330 360,180" 
-        fill="none" stroke="white" stroke-width="20" stroke-dasharray="40,20" stroke-linecap="round" />
-  <circle cx="256" cy="280" r="30" fill="white" />
-  <g transform="translate(360,180) rotate(-40)">
-    <path fill="white" d="M0,-40 L5,-12 L35,-4 L5,4 L10,35 L0,18 L-10,35 L-5,4 L-35,-4 L-5,-12 Z" />
+
+  <!-- Simplified for small sizes: Just the airplane and a swoosh -->
+  <!-- Thicker strokes relative to size -->
+  
+  <path d="M40,400 C150,400 200,256 256,256 S 360,112 472,112"
+    fill="none" 
+    stroke="url(#grad1)" 
+    stroke-width="50" 
+    stroke-linecap="round" />
+    
+  <!-- Larger Layover Dot -->
+  <circle cx="256" cy="256" r="45" fill="url(#grad1)" />
+  <circle cx="256" cy="256" r="20" fill="white" />
+  
+  <!-- Larger Plane -->
+  <g transform="translate(472, 112) rotate(-15)">
+     <path fill="url(#grad1)" 
+      d="M30,0 L-10,20 L-6,0 L-10,-20 Z M4,0 L-18,34 L-10,34 L8,0 Z M4,0 L-18,-34 L-10,-34 L8,0 Z" 
+      transform="scale(1.5)" />
   </g>
 </svg>

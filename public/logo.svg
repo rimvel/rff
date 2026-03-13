@@ -1,16 +1,29 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="grad1" x1="0%" y1="100%" x2="100%" y2="0%">
       <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <!-- Circle with 5% padding to explicitly show transparency around it -->
-  <circle cx="256" cy="256" r="230" fill="url(#logo-grad)" />
-  <path d="M140,340 C190,240 256,240 256,280 C256,330 310,330 360,180" 
-        fill="none" stroke="white" stroke-width="20" stroke-dasharray="40,20" stroke-linecap="round" />
-  <circle cx="256" cy="280" r="30" fill="white" />
-  <g transform="translate(360,180) rotate(-40)">
-    <path fill="white" d="M0,-40 L5,-12 L35,-4 L5,4 L10,35 L0,18 L-10,35 L-5,4 L-35,-4 L-5,-12 Z" />
+
+  <!-- Flight Path: A smooth curve connecting origin, layover, and destination -->
+  <!-- The path is thicker for high visibility without a background container -->
+  <path d="M60,380 C160,380 200,280 256,256 C312,232 352,132 452,132"
+    fill="none" 
+    stroke="url(#grad1)" 
+    stroke-width="32" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"/>
+
+  <!-- Layover Node: A distinct hollow point or solid point. Let's do a solid point with halo -->
+  <circle cx="256" cy="256" r="32" fill="url(#grad1)" />
+  <circle cx="256" cy="256" r="14" fill="white" />
+
+  <!-- Airplane at destination -->
+  <!-- Rotated to match the end of the curve (horizontal-ish) -->
+  <g transform="translate(452, 132) rotate(-15)">
+    <path fill="url(#grad1)" 
+      d="M30,0 L-10,20 L-6,0 L-10,-20 Z M4,0 L-18,34 L-10,34 L8,0 Z M4,0 L-18,-34 L-10,-34 L8,0 Z" 
+      transform="scale(1.2)" />
   </g>
 </svg>
