@@ -1,102 +1,81 @@
-import { getOneWayFares, getRoutes, Flight } from './ryanair';
+import { getOneWayFares, getRoutes } from './ryanair';
+import { minutesBetween } from './time';
+import { Flight, RouteResult } from './types';
 
-export interface RouteResult {
-    type: 'direct' | 'layover';
-    origin: string;
-    destination: string;
-    via?: string;
-    flights: Flight[];
-    totalPrice: number;
-    currency: string;
-    duration: number; // in minutes
-    carrier?: string; // flight carrier
+export type { RouteResult } from './types';
+
+export const MIN_CONNECTION_MINUTES = 120; // 2 hours
+export const MAX_CONNECTION_MINUTES = 720; // 12 hours
+
+/** Real elapsed minutes from the first departure to the last arrival. */
+export function tripDuration(flights: Flight[], timeZones: Map<string, string>): number {
+    const first = flights[0];
+    const last = flights[flights.length - 1];
+    return minutesBetween(first.departureDate, timeZones.get(first.origin), last.arrivalDate, timeZones.get(last.destination));
 }
 
-const MIN_CONNECTION_MINUTES = 120; // 2 hours
-const MAX_CONNECTION_MINUTES = 720; // 12 hours
-
-function getDurationInMinutes(start: string, end: string): number {
-    const s = new Date(start).getTime();
-    const e = new Date(end).getTime();
-    return (e - s) / 60000;
+/** Minutes waiting at the hub. Both times are local to the same airport, so no time zone is needed. */
+export function connectionMinutes(first: Flight, second: Flight): number {
+    return minutesBetween(first.arrivalDate, undefined, second.departureDate, undefined);
 }
 
-export async function findCheapestRoutes(origin: string, dest: string, date: string): Promise<RouteResult[]> {
+export async function findCheapestRoutes(
+    origin: string,
+    dest: string,
+    date: string,
+    timeZones: Map<string, string> = new Map(),
+): Promise<RouteResult[]> {
     const results: RouteResult[] = [];
 
-    // 1. Direct Flight
-    try {
-        const ryanairFlight = await getOneWayFares(origin, dest, date).catch(e => {
-            console.error('Ryanair direct search failed', e);
-            return null;
+    const [direct, routesFromOrigin, routesFromDest] = await Promise.all([
+        getOneWayFares(origin, dest, date),
+        getRoutes(origin),
+        getRoutes(dest),
+    ]);
+
+    // 1. Direct flight
+    if (direct) {
+        results.push({
+            type: 'direct',
+            origin,
+            destination: dest,
+            flights: [direct],
+            totalPrice: direct.price.value,
+            currency: direct.price.currencyCode,
+            duration: tripDuration([direct], timeZones),
         });
-
-        if (ryanairFlight) {
-            results.push({
-                type: 'direct',
-                origin,
-                destination: dest,
-                flights: [ryanairFlight],
-                totalPrice: ryanairFlight.price.value,
-                currency: ryanairFlight.price.currencyCode,
-                duration: getDurationInMinutes(ryanairFlight.departureDate, ryanairFlight.arrivalDate),
-                carrier: 'Ryanair'
-            });
-        }
-    } catch (e) {
-        console.error('Error fetching direct flights', e);
     }
 
-    // 2. Layover Flights via Ryanair Hubs
-    try {
-        const [routesFromOrigin, routesFromDest] = await Promise.all([
-            getRoutes(origin),
-            getRoutes(dest),
+    // 2. One stop via any airport both ends fly to
+    const fromDest = new Set(routesFromDest);
+    const hubs = routesFromOrigin.filter(hub => fromDest.has(hub) && hub !== origin && hub !== dest);
+
+    // Outgoing requests are rate-limited globally in ryanair.ts, so run all hubs at once
+    await Promise.all(hubs.map(async hub => {
+        const [flightA, flightB] = await Promise.all([
+            getOneWayFares(origin, hub, date),
+            getOneWayFares(hub, dest, date),
         ]);
+        if (!flightA || !flightB) return;
 
-        const hubs = routesFromOrigin.filter(hub => routesFromDest.includes(hub));
+        const wait = connectionMinutes(flightA, flightB);
+        if (wait < MIN_CONNECTION_MINUTES || wait > MAX_CONNECTION_MINUTES) return;
 
-        // Limit concurrency
-        const CONCURRENCY_LIMIT = 5;
-        const chunks = [];
-        for (let i = 0; i < hubs.length; i += CONCURRENCY_LIMIT) {
-            chunks.push(hubs.slice(i, i + CONCURRENCY_LIMIT));
-        }
-
-        for (const chunk of chunks) {
-            await Promise.all(chunk.map(async (hub) => {
-                if (hub === origin || hub === dest) return;
-
-                const [flightA, flightB] = await Promise.all([
-                    getOneWayFares(origin, hub, date),
-                    getOneWayFares(hub, dest, date),
-                ]);
-
-                if (flightA && flightB) {
-                    const arrivalA = new Date(flightA.arrivalDate).getTime();
-                    const departureB = new Date(flightB.departureDate).getTime();
-                    const diffMinutes = (departureB - arrivalA) / 60000;
-
-                    if (diffMinutes >= MIN_CONNECTION_MINUTES && diffMinutes <= MAX_CONNECTION_MINUTES) {
-                        results.push({
-                            type: 'layover',
-                            origin,
-                            destination: dest,
-                            via: hub,
-                            flights: [flightA, flightB],
-                            totalPrice: flightA.price.value + flightB.price.value,
-                            currency: flightA.price.currencyCode,
-                            duration: getDurationInMinutes(flightA.departureDate, flightB.arrivalDate),
-                            carrier: 'Ryanair (Layover)'
-                        });
-                    }
-                }
-            }));
-        }
-
-    } catch (e) {
-        console.error('Error finding layovers', e);
-    }
+        results.push({
+            type: 'layover',
+            origin,
+            destination: dest,
+            via: hub,
+            flights: [flightA, flightB],
+            totalPrice: round2(flightA.price.value + flightB.price.value),
+            currency: flightA.price.currencyCode,
+            duration: tripDuration([flightA, flightB], timeZones),
+        });
+    }));
 
     return results.sort((a, b) => a.totalPrice - b.totalPrice);
+}
+
+export function round2(n: number): number {
+    return Math.round(n * 100) / 100;
 }
