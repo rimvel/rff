@@ -1,95 +1,129 @@
+import { Airport, Flight } from './types';
+import { TtlCache, createLimiter } from './cache';
+
+export type { Airport, Flight } from './types';
 
 const BASE_URL = 'https://services-api.ryanair.com/farfnd/v4';
 const LOCATE_URL = 'https://www.ryanair.com/api/views/locate';
-
-export interface Airport {
-    code: string;
-    name: string;
-    country: {
-        code: string;
-        name: string;
-    };
-    city: {
-        name: string;
-        code: string;
-    };
-    macCity?: {
-        name: string;
-        code: string;
-    };
-    region?: {
-        name: string;
-        code: string;
-    };
-}
-
-export interface Route {
-    arrivalAirport: Airport;
-    operator: string;
-}
-
-export interface Price {
-    value: number;
-    currencyCode: string;
-}
-
-export interface Flight {
-    departureDate: string;
-    arrivalDate: string;
-    price: Price;
-    flightNumber: string;
-    duration: string; // inferred
-}
-
-export interface Trip {
-    origin: string;
-    destination: string;
-    flights: Flight[];
-    totalPrice: number;
-    currency: string;
-}
 
 const HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 };
 
-export async function getAirports(): Promise<Airport[]> {
-    const res = await fetch(`${LOCATE_URL}/5/airports/en/active`, { headers: HEADERS });
-    if (!res.ok) throw new Error(`Failed to fetch airports: ${res.status}`);
-    return res.json();
+const HOUR = 60 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 10_000;
+
+// Max simultaneous requests to Ryanair from this server, across all searches
+const limit = createLimiter(8);
+
+const AIRPORT_CODE = /^[A-Z]{3}$/;
+
+export function isAirportCode(code: string): boolean {
+    return AIRPORT_CODE.test(code);
 }
 
-export async function getRoutes(airportCode: string): Promise<string[]> {
+async function fetchJson(url: string): Promise<unknown> {
+    return limit(async () => {
+        const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+        if (!res.ok) throw new Error(`Ryanair API ${res.status} for ${url}`);
+        return res.json();
+    });
+}
+
+// --- Airports (cached 24h, stale copy served if a refresh fails) ---
+
+let airportCache: { data: Airport[]; fetchedAt: number } | null = null;
+let airportFetch: Promise<Airport[]> | null = null;
+
+export async function getAirports(): Promise<Airport[]> {
+    if (airportCache && Date.now() - airportCache.fetchedAt < 24 * HOUR) return airportCache.data;
+    if (!airportFetch) {
+        airportFetch = (async () => {
+            try {
+                const data = (await fetchJson(`${LOCATE_URL}/5/airports/en/active`)) as Airport[];
+                airportCache = { data, fetchedAt: Date.now() };
+                return data;
+            } catch (e) {
+                if (airportCache) {
+                    console.warn('Failed to refresh airports, serving stale cache:', e);
+                    return airportCache.data;
+                }
+                throw e;
+            } finally {
+                airportFetch = null;
+            }
+        })();
+    }
+    return airportFetch;
+}
+
+/** Map of airport code -> IANA time zone. Empty if airports can't be loaded. */
+export async function getTimeZones(): Promise<Map<string, string>> {
     try {
-        const res = await fetch(`${LOCATE_URL}/searchWidget/routes/en/airport/${airportCode}`, { headers: HEADERS });
-        if (!res.ok) return []; // Some airports might not have routes or error out
-        const data = await res.json();
-        return data.map((r: any) => r.arrivalAirport.code);
-    } catch (e) {
+        const airports = await getAirports();
+        return new Map(airports.filter(a => a.timeZone).map(a => [a.code, a.timeZone!]));
+    } catch {
+        return new Map();
+    }
+}
+
+// --- Routes (cached 12h) ---
+
+const routeCache = new TtlCache<string[]>(12 * HOUR);
+
+export function getRoutes(airportCode: string): Promise<string[]> {
+    if (!isAirportCode(airportCode)) return Promise.resolve([]);
+    return routeCache.get(airportCode, async () => {
+        const data = (await fetchJson(`${LOCATE_URL}/searchWidget/routes/en/airport/${airportCode}`)) as { arrivalAirport: { code: string } }[];
+        return data.map(r => r.arrivalAirport.code);
+    }).catch(e => {
         console.error(`Error fetching routes for ${airportCode}`, e);
         return [];
-    }
+    });
 }
 
-export async function getOneWayFares(origin: string, dest: string, date: string): Promise<Flight | null> {
-    const url = `${BASE_URL}/oneWayFares?departureAirportIataCode=${origin}&arrivalAirportIataCode=${dest}&outboundDepartureDateFrom=${date}&outboundDepartureDateTo=${date}&currency=EUR`;
-    try {
-        const res = await fetch(url, { headers: HEADERS });
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data.fares && data.fares.length > 0) {
-            const fare = data.fares[0].outbound;
-            return {
-                departureDate: fare.departureDate,
-                arrivalDate: fare.arrivalDate,
-                price: fare.price,
-                flightNumber: fare.flightNumber,
-                duration: '', // Calculate if needed
-            };
-        }
-        return null;
-    } catch (e) {
+// --- Fares (cached 15 min; prices change, but not by the second) ---
+
+interface FareResponse {
+    fares?: {
+        outbound: {
+            departureDate: string;
+            arrivalDate: string;
+            price: { value: number; currencyCode: string };
+            flightNumber: string;
+        };
+    }[];
+}
+
+const fareCache = new TtlCache<Flight | null>(15 * 60 * 1000);
+
+/**
+ * Cheapest one-way fare for a route on a given day.
+ * Note: this Ryanair endpoint only returns the single cheapest flight per day.
+ */
+export function getOneWayFares(origin: string, dest: string, date: string): Promise<Flight | null> {
+    if (!isAirportCode(origin) || !isAirportCode(dest)) return Promise.resolve(null);
+    const params = new URLSearchParams({
+        departureAirportIataCode: origin,
+        arrivalAirportIataCode: dest,
+        outboundDepartureDateFrom: date,
+        outboundDepartureDateTo: date,
+        currency: 'EUR',
+    });
+    return fareCache.get(`${origin}-${dest}-${date}`, async () => {
+        const data = (await fetchJson(`${BASE_URL}/oneWayFares?${params}`)) as FareResponse;
+        const fare = data.fares?.[0]?.outbound;
+        if (!fare) return null;
+        return {
+            origin,
+            destination: dest,
+            departureDate: fare.departureDate,
+            arrivalDate: fare.arrivalDate,
+            price: { value: fare.price.value, currencyCode: fare.price.currencyCode },
+            flightNumber: fare.flightNumber,
+        };
+    }).catch(e => {
         console.error(`Error fetching fares ${origin}->${dest}`, e);
         return null;
-    }
+    });
 }

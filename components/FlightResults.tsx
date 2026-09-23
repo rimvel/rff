@@ -2,37 +2,13 @@
 
 import { useMemo } from 'react';
 import { useAirports } from '@/lib/useAirports';
-
-interface Flight {
-    departureDate: string;
-    arrivalDate: string;
-    price: {
-        value: number;
-        currencyCode: string;
-    };
-    flightNumber: string;
-}
-
-interface RouteResult {
-    type: 'direct' | 'layover';
-    origin: string;
-    destination: string;
-    via?: string;
-    flights: Flight[];
-    totalPrice: number;
-    currency: string;
-    duration: number;
-    searchDate?: string;
-    isRoundTrip?: boolean;
-    returnFlights?: RouteResult[];
-    carrier?: string;
-}
+import { localToUtcMs } from '@/lib/time';
+import { Flight, RouteResult, SearchResult } from '@/lib/types';
 
 interface FlightResultsProps {
-    results: RouteResult[];
+    results: SearchResult[];
+    isRoundTrip?: boolean;
 }
-
-// Airport type is imported from @/lib/useAirports
 
 function formatDuration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
@@ -40,98 +16,234 @@ function formatDuration(minutes: number): string {
     return `${hours}h ${mins}m`;
 }
 
-function formatDateTime(dateStr: string): string {
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-GB', {
+// Flight times are local to their airport, so show them exactly as given (no time zone conversion)
+function formatDateTime(local: string): string {
+    return new Date(localToUtcMs(local)).toLocaleString('en-GB', {
         day: '2-digit',
         month: 'short',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: 'UTC',
     });
 }
 
-function getBookingUrl(origin: string, destination: string, dateStr: string): string {
-    const date = new Date(dateStr).toISOString().split('T')[0];
-    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${date}&roundtrip=false`;
+function formatDay(date: string): string {
+    return new Date(localToUtcMs(date)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
-function getRoundTripBookingUrl(origin: string, destination: string, dateOutStr: string, dateInStr: string): string {
-    const dateOut = new Date(dateOutStr).toISOString().split('T')[0];
-    const dateIn = new Date(dateInStr).toISOString().split('T')[0];
-    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${dateOut}&dateIn=${dateIn}&roundtrip=true`;
+/** Minutes between two local times at the same airport. */
+function minutesAtAirport(from: string, to: string): number {
+    return (localToUtcMs(to) - localToUtcMs(from)) / 60000;
 }
 
-// Check if a flight time is in the Vilnius balloon risk window (19:00-03:00)
-function isInVilniusBalloonRiskWindow(dateStr: string, airportCode: string): boolean {
-    if (airportCode !== 'VNO') return false;
+const localDay = (local: string) => local.slice(0, 10);
 
-    const d = new Date(dateStr);
-    const hour = d.getHours();
+function getBookingUrl(origin: string, destination: string, departure: string): string {
+    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${localDay(departure)}&roundtrip=false`;
+}
 
-    // Risk window is 19:00 (7 PM) to 03:00 (3 AM)
+function getRoundTripBookingUrl(origin: string, destination: string, departureOut: string, departureIn: string): string {
+    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${localDay(departureOut)}&dateIn=${localDay(departureIn)}&roundtrip=true`;
+}
+
+// Flights at Vilnius between 19:00 and 03:00 risk cancellation due to meteorological balloons
+function isVilniusBalloonRisk(local: string, airport: string): boolean {
+    if (airport !== 'VNO') return false;
+    const hour = Number(local.slice(11, 13));
     return hour >= 19 || hour < 3;
 }
 
-// Check if a route involves Vilnius and has flights in the risk window
-function checkVilniusBalloonRisk(result: RouteResult): { hasRisk: boolean; riskType: 'departure' | 'arrival' | 'both' | null } {
-    let hasDepartureRisk = false;
-    let hasArrivalRisk = false;
-
-    // Check outbound flights
-    for (const flight of result.flights) {
-        if (isInVilniusBalloonRiskWindow(flight.departureDate, result.origin)) {
-            hasDepartureRisk = true;
-        }
-        if (isInVilniusBalloonRiskWindow(flight.arrivalDate, result.destination)) {
-            hasArrivalRisk = true;
-        }
-    }
-
-    // Check return flights if they exist
-    if (result.returnFlights && result.returnFlights.length > 0) {
-        for (const flight of result.returnFlights[0].flights) {
-            if (isInVilniusBalloonRiskWindow(flight.departureDate, result.destination)) {
-                hasDepartureRisk = true;
-            }
-            if (isInVilniusBalloonRiskWindow(flight.arrivalDate, result.origin)) {
-                hasArrivalRisk = true;
-            }
-        }
-    }
-
-    const hasRisk = hasDepartureRisk || hasArrivalRisk;
-    let riskType: 'departure' | 'arrival' | 'both' | null = null;
-
-    if (hasDepartureRisk && hasArrivalRisk) {
-        riskType = 'both';
-    } else if (hasDepartureRisk) {
-        riskType = 'departure';
-    } else if (hasArrivalRisk) {
-        riskType = 'arrival';
-    }
-
-    return { hasRisk, riskType };
+function hasVilniusBalloonRisk(result: SearchResult): boolean {
+    const flights = [...result.flights, ...(result.returnFlights?.[0]?.flights ?? [])];
+    return flights.some(f => isVilniusBalloonRisk(f.departureDate, f.origin) || isVilniusBalloonRisk(f.arrivalDate, f.destination));
 }
 
-export default function FlightResults({ results }: FlightResultsProps) {
+function Price({ result, bookingUrl }: { result: SearchResult; bookingUrl: string }) {
+    const content = (
+        <>
+            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
+            <span className="price-currency">{result.currency}</span>
+        </>
+    );
+    if (!bookingUrl) return content;
+    return (
+        <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="price-link" title="Book official flights">
+            {content}
+        </a>
+    );
+}
+
+function Layover({ arriving, departing }: { arriving: Flight; departing: Flight }) {
+    const waitMinutes = minutesAtAirport(arriving.arrivalDate, departing.departureDate);
+    let warning: { text: string; className: string } | null = null;
+    if (waitMinutes > 480) warning = { text: '⚠️ Long!', className: 'layover-warning-long' };
+    else if (waitMinutes < 90) warning = { text: '⚡ Short!', className: 'layover-warning-short' };
+
+    return (
+        <div className="connection-info">
+            Layover at {arriving.destination} • {formatDuration(waitMinutes)} wait
+            {warning && <> <span className={`layover-warning ${warning.className}`}>{warning.text}</span></>}
+        </div>
+    );
+}
+
+function FlightSegments({ flights }: { flights: Flight[] }) {
+    return (
+        <>
+            {flights.map((flight, i) => (
+                <div key={`${flight.flightNumber}-${flight.departureDate}`} className="flight-segment">
+                    <div className="flight-info">
+                        <div className="flight-time">
+                            <div className="time-point">
+                                <span className="time">{formatDateTime(flight.departureDate)}</span>
+                                <span className="airport">{flight.origin}</span>
+                            </div>
+                            <div className="flight-line">
+                                <div className="line"></div>
+                                <span className="flight-number">{flight.flightNumber}</span>
+                            </div>
+                            <div className="time-point">
+                                <span className="time">{formatDateTime(flight.arrivalDate)}</span>
+                                <span className="airport">{flight.destination}</span>
+                            </div>
+                        </div>
+                        <div className="flight-price">
+                            <a
+                                href={getBookingUrl(flight.origin, flight.destination, flight.departureDate)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="segment-price-link"
+                                title={`Book ${flight.origin} → ${flight.destination}`}
+                            >
+                                {flight.price.value.toFixed(2)} {flight.price.currencyCode}
+                                <span className="book-icon">↗</span>
+                            </a>
+                        </div>
+                    </div>
+                    {i < flights.length - 1 && <Layover arriving={flight} departing={flights[i + 1]} />}
+                </div>
+            ))}
+        </>
+    );
+}
+
+function ReturnLeg({ result, ret, cityName }: { result: SearchResult; ret: RouteResult; cityName: (code: string) => string }) {
+    const outboundArrival = result.flights[result.flights.length - 1].arrivalDate;
+    const stayHours = Math.floor(minutesAtAirport(outboundArrival, ret.flights[0].departureDate) / 60);
+    const stayDays = Math.floor(stayHours / 24);
+    const stayText = stayDays > 0 ? `${stayDays}d ${stayHours % 24}h` : `${stayHours}h`;
+
+    return (
+        <>
+            <div className="flight-separator">
+                <div className="separator-line"></div>
+                <div className="separator-content">
+                    <div className="arrow-down">↓</div>
+                    <span className="stay-duration">
+                        {stayText} at {result.destination}
+                        {stayHours < 4 && (
+                            <> <span className="layover-warning layover-warning-short" style={{ marginLeft: '0.5rem' }}>(⚡ Short stay!)</span></>
+                        )}
+                    </span>
+                </div>
+                <div className="separator-line"></div>
+            </div>
+
+            <div className="result-header return-header">
+                <div className="result-header-content">
+                    <div className="header-top-row">
+                        <div className="badge-group">
+                            <span className="badge direction-badge">Return</span>
+                            {ret.type === 'direct' ? (
+                                <span className="badge direct">Direct</span>
+                            ) : (
+                                <span className="badge layover">Via {ret.via}</span>
+                            )}
+                            {ret.searchDate && <span className="badge date-badge">{formatDay(ret.searchDate)}</span>}
+                            <span className="badge duration-badge">{formatDuration(ret.duration)}</span>
+                        </div>
+                    </div>
+
+                    <div className="route-info-container">
+                        <div className="route-cities">
+                            {cityName(result.destination)} → {cityName(result.origin)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <FlightSegments flights={ret.flights} />
+        </>
+    );
+}
+
+function ResultCard({ result, cityName }: { result: SearchResult; cityName: (code: string) => string }) {
+    const ret = result.returnFlights?.[0];
+
+    let bookingUrl = '';
+    if (result.type === 'direct' && !result.isRoundTrip) {
+        bookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate);
+    } else if (result.type === 'direct' && ret?.type === 'direct') {
+        bookingUrl = getRoundTripBookingUrl(result.origin, result.destination, result.flights[0].departureDate, ret.flights[0].departureDate);
+    }
+
+    return (
+        <div className="result-card">
+            <div className="result-header">
+                <div className="result-header-content">
+                    <div className="header-top-row">
+                        <div className="badge-group">
+                            <span className="badge direction-badge">DEPARTURE</span>
+                            <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
+                                {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
+                            </span>
+                            {result.searchDate && <span className="badge date-badge">{formatDay(result.searchDate)}</span>}
+                            <span className="badge duration-badge">{formatDuration(result.duration)}</span>
+                        </div>
+
+                        {/* Mobile: price in the top row */}
+                        <div className="result-price mobile-price">
+                            <Price result={result} bookingUrl={bookingUrl} />
+                        </div>
+                    </div>
+
+                    <div className="route-info-container">
+                        <div className="route-cities">
+                            {cityName(result.origin)} → {cityName(result.destination)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop: price on the right */}
+                <div className="result-price desktop-price">
+                    <Price result={result} bookingUrl={bookingUrl} />
+                </div>
+            </div>
+
+            {hasVilniusBalloonRisk(result) && (
+                <div className="vilnius-balloon-warning">
+                    Cancellation risk (19:00-03:00) due to meteorological balloons at VNO 🎈
+                </div>
+            )}
+
+            <div className="result-body">
+                <FlightSegments flights={result.flights} />
+                {ret && <ReturnLeg result={result} ret={ret} cityName={cityName} />}
+            </div>
+        </div>
+    );
+}
+
+export default function FlightResults({ results, isRoundTrip }: FlightResultsProps) {
     const { airports } = useAirports();
 
-    const airportNames = useMemo(() => {
-        const map: Record<string, string> = {};
-        airports.forEach(a => {
-            map[a.code] = a.name;
-        });
-        return map;
-    }, [airports]);
-
-    const getCityName = (code: string) => {
-        return airportNames[code] || code;
-    };
+    const airportNames = useMemo(() => new Map(airports.map(a => [a.code, a.name])), [airports]);
+    const cityName = (code: string) => airportNames.get(code) || code;
 
     if (results.length === 0) {
         return (
             <div className="no-results">
                 <p>No flights found for your search criteria.</p>
+                {isRoundTrip && <p>💡 No outbound and return flights fit together. Try a different return date or enable flexible dates.</p>}
             </div>
         );
     }
@@ -141,326 +253,9 @@ export default function FlightResults({ results }: FlightResultsProps) {
             <h2 className="results-title">Found {results.length} {results.length === 1 ? 'option' : 'options'}</h2>
 
             <div className="results-list">
-                {results.map((result, index) => {
-                    const { hasRisk, riskType } = checkVilniusBalloonRisk(result);
-
-                    const isSimpleDirect = result.type === 'direct' && !result.isRoundTrip;
-                    const isSimpleRoundTripDirect = result.type === 'direct' && result.isRoundTrip && result.returnFlights?.[0]?.type === 'direct';
-
-                    let mainBookingUrl = '';
-                    if (isSimpleDirect) {
-                        mainBookingUrl = getBookingUrl(result.origin, result.destination, result.flights[0].departureDate);
-                    } else if (isSimpleRoundTripDirect) {
-                        mainBookingUrl = getRoundTripBookingUrl(
-                            result.origin,
-                            result.destination,
-                            result.flights[0].departureDate,
-                            result.returnFlights![0].flights[0].departureDate
-                        );
-                    }
-
-                    return (
-                        <div key={index} className="result-card">
-                            <div className="result-header">
-                                <div className="result-header-content">
-                                    {/* Top Row: Badges, Codes, Price(Mobile) */}
-                                    <div className="header-top-row">
-                                        <div className="badge-group">
-                                            <span className="badge direction-badge">DEPARTURE</span>
-                                            <span className={`badge ${result.type === 'direct' ? 'direct' : 'layover'}`}>
-                                                {result.type === 'direct' ? 'DIRECT' : `LAYOVER (${result.via})`}
-                                            </span>
-                                            {result.searchDate && (
-                                                <span className="badge date-badge">
-                                                    {new Date(result.searchDate).toLocaleDateString('en-GB', {
-                                                        day: 'numeric',
-                                                        month: 'short'
-                                                    })}
-                                                </span>
-                                            )}
-                                            <span className="badge duration-badge">
-                                                {formatDuration(result.duration)}
-                                            </span>
-                                        </div>
-
-                                        {/* Mobile: Price is here in top row */}
-                                        <div className="result-price mobile-price">
-                                            {mainBookingUrl ? (
-                                                <a
-                                                    href={mainBookingUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="price-link"
-                                                    title="Book official flights"
-                                                >
-                                                    <span className="price-value">{result.totalPrice.toFixed(2)}</span>
-                                                    <span className="price-currency">{result.currency}</span>
-                                                </a>
-                                            ) : (
-                                                <>
-                                                    <span className="price-value">{result.totalPrice.toFixed(2)}</span>
-                                                    <span className="price-currency">{result.currency}</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Route Info: Cities only */}
-                                    <div className="route-info-container">
-                                        <div className="route-cities">
-                                            {getCityName(result.origin)} → {getCityName(result.destination)}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Desktop: Price is on the right side */}
-                                <div className="result-price desktop-price">
-                                    {mainBookingUrl ? (
-                                        <a
-                                            href={mainBookingUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="price-link"
-                                            title="Book official flights"
-                                        >
-                                            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
-                                            <span className="price-currency">{result.currency}</span>
-                                        </a>
-                                    ) : (
-                                        <>
-                                            <span className="price-value">{result.totalPrice.toFixed(2)}</span>
-                                            <span className="price-currency">{result.currency}</span>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Vilnius Balloon Risk Warning */}
-                            {hasRisk && (
-                                <div className="vilnius-balloon-warning">
-                                    Cancellation risk (19:00-03:00) due to meteorological balloons at VNO 🎈
-                                </div>
-                            )}
-
-                            <div className="result-body">
-                                {/* Outbound Flight */}
-                                {result.flights.map((flight, fIdx) => (
-                                    <div key={fIdx} className="flight-segment">
-                                        <div className="flight-info">
-                                            <div className="flight-time">
-                                                <div className="time-point">
-                                                    <span className="time">{formatDateTime(flight.departureDate)}</span>
-                                                    <span className="airport">{fIdx === 0 ? result.origin : result.via}</span>
-                                                </div>
-                                                <div className="flight-line">
-                                                    <div className="line"></div>
-                                                    <span className="flight-number">{flight.flightNumber}</span>
-                                                </div>
-                                                <div className="time-point">
-                                                    <span className="time">{formatDateTime(flight.arrivalDate)}</span>
-                                                    <span className="airport">{fIdx === result.flights.length - 1 ? result.destination : result.via}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flight-price">
-                                                <a
-                                                    href={getBookingUrl(
-                                                        fIdx === 0 ? result.origin : result.via!,
-                                                        fIdx === result.flights.length - 1 ? result.destination : result.via!,
-                                                        flight.departureDate
-                                                    )}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="segment-price-link"
-                                                    title={`Book ${fIdx === 0 ? result.origin : result.via} → ${fIdx === result.flights.length - 1 ? result.destination : result.via}`}
-                                                >
-                                                    {flight.price?.value?.toFixed(2) ?? '0.00'} {flight.price?.currencyCode ?? 'EUR'}
-                                                    <span className="book-icon">↗</span>
-                                                </a>
-                                            </div>
-                                        </div>
-                                        {fIdx < result.flights.length - 1 && (() => {
-                                            const currentFlight = result.flights[fIdx];
-                                            const nextFlight = result.flights[fIdx + 1];
-                                            const arrivalTime = new Date(currentFlight.arrivalDate).getTime();
-                                            const departureTime = new Date(nextFlight.departureDate).getTime();
-                                            const waitMinutes = (departureTime - arrivalTime) / 60000;
-
-                                            // Determine warning message
-                                            let warningMessage = '';
-                                            let warningClass = '';
-                                            if (waitMinutes > 480) { // Over 8 hours
-                                                warningMessage = '⚠️ Long!';
-                                                warningClass = 'layover-warning-long';
-                                            } else if (waitMinutes < 90) { // Under 1h 30min
-                                                warningMessage = '⚡ Short!';
-                                                warningClass = 'layover-warning-short';
-                                            }
-
-                                            return (
-                                                <div className="connection-info">
-                                                    Layover at {result.via} • {formatDuration(waitMinutes)} wait
-                                                    {warningMessage && <> <span className={`layover-warning ${warningClass}`}>{warningMessage}</span></>}
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                ))}
-
-                                {/* Return Flight */}
-                                {result.isRoundTrip && (() => {
-                                    // Check if return flights are available
-                                    if (!result.returnFlights || result.returnFlights.length === 0) {
-                                        return (
-                                            <>
-                                                <div className="flight-separator">
-                                                    <div className="separator-line"></div>
-                                                    <div className="separator-content">
-                                                        <div className="arrow-down">↓</div>
-                                                    </div>
-                                                    <div className="separator-line"></div>
-                                                </div>
-                                                <div className="no-return-flights">
-                                                    <div className="no-return-icon">✈️</div>
-                                                    <h3>No Return Flights Available</h3>
-                                                    <p>Unfortunately, no return flights were found for the selected date.</p>
-                                                    <p className="suggestion">💡 Try selecting a different return date or enable flexible dates to see more options.</p>
-                                                </div>
-                                            </>
-                                        );
-                                    }
-
-                                    // Calculate time at destination
-                                    const outboundArrival = new Date(result.flights[result.flights.length - 1].arrivalDate);
-                                    const returnDeparture = new Date(result.returnFlights[0].flights[0].departureDate);
-                                    const stayMilliseconds = returnDeparture.getTime() - outboundArrival.getTime();
-                                    const stayHours = Math.floor(stayMilliseconds / (1000 * 60 * 60));
-                                    const stayDays = Math.floor(stayHours / 24);
-                                    const remainingHours = stayHours % 24;
-
-                                    let stayText = '';
-                                    if (stayDays > 0) {
-                                        stayText = `${stayDays}d ${remainingHours}h`;
-                                    } else {
-                                        stayText = `${remainingHours}h`;
-                                    }
-
-                                    return (
-                                        <>
-                                            <div className="flight-separator">
-                                                <div className="separator-line"></div>
-                                                <div className="separator-content">
-                                                    <div className="arrow-down">↓</div>
-                                                    <span className="stay-duration">
-                                                        {stayText} at {result.destination}
-                                                        {stayHours < 4 && (
-                                                            <> <span className="layover-warning layover-warning-short" style={{ marginLeft: '0.5rem' }}>(⚡ Short stay!)</span></>
-                                                        )}
-                                                    </span>
-                                                </div>
-                                                <div className="separator-line"></div>
-                                            </div>
-
-                                            <div className="result-header return-header">
-                                                <div className="result-header-content">
-                                                    <div className="header-top-row">
-                                                        <div className="badge-group">
-                                                            <span className="badge direction-badge">Return</span>
-                                                            {result.returnFlights[0].type === 'direct' ? (
-                                                                <span className="badge direct">Direct</span>
-                                                            ) : (
-                                                                <span className="badge layover">Via {result.returnFlights[0].via}</span>
-                                                            )}
-                                                            {result.returnFlights[0].searchDate && (
-                                                                <span className="badge date-badge">
-                                                                    {new Date(result.returnFlights[0].searchDate).toLocaleDateString('en-GB', {
-                                                                        day: 'numeric',
-                                                                        month: 'short'
-                                                                    })}
-                                                                </span>
-                                                            )}
-                                                            <span className="badge duration-badge">
-                                                                {formatDuration(result.returnFlights[0].duration)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="route-info-container">
-                                                        <div className="route-cities">
-                                                            {getCityName(result.destination)} → {getCityName(result.origin)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {result.returnFlights[0].flights.map((flight, fIdx) => (
-                                                <div key={`return-${fIdx}`} className="flight-segment">
-                                                    <div className="flight-info">
-                                                        <div className="flight-time">
-                                                            <div className="time-point">
-                                                                <span className="time">{formatDateTime(flight.departureDate)}</span>
-                                                                <span className="airport">{fIdx === 0 ? result.destination : result.returnFlights![0].via}</span>
-                                                            </div>
-                                                            <div className="flight-line">
-                                                                <div className="line"></div>
-                                                                <span className="flight-number">{flight.flightNumber}</span>
-                                                            </div>
-                                                            <div className="time-point">
-                                                                <span className="time">{formatDateTime(flight.arrivalDate)}</span>
-                                                                <span className="airport">{fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flight-price">
-                                                            <a
-                                                                href={getBookingUrl(
-                                                                    fIdx === 0 ? result.destination : result.returnFlights![0].via!,
-                                                                    fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via!,
-                                                                    flight.departureDate
-                                                                )}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="segment-price-link"
-                                                                title={`Book ${fIdx === 0 ? result.destination : result.returnFlights![0].via} → ${fIdx === result.returnFlights![0].flights.length - 1 ? result.origin : result.returnFlights![0].via}`}
-                                                            >
-                                                                {flight.price.value.toFixed(2)} {flight.price.currencyCode}
-                                                                <span className="book-icon">↗</span>
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                    {fIdx < result.returnFlights![0].flights.length - 1 && (() => {
-                                                        const currentFlight = result.returnFlights![0].flights[fIdx];
-                                                        const nextFlight = result.returnFlights![0].flights[fIdx + 1];
-                                                        const arrivalTime = new Date(currentFlight.arrivalDate).getTime();
-                                                        const departureTime = new Date(nextFlight.departureDate).getTime();
-                                                        const waitMinutes = (departureTime - arrivalTime) / 60000;
-
-                                                        // Determine warning message
-                                                        let warningMessage = '';
-                                                        let warningClass = '';
-                                                        if (waitMinutes > 480) { // Over 8 hours
-                                                            warningMessage = '⚠️ Long!';
-                                                            warningClass = 'layover-warning-long';
-                                                        } else if (waitMinutes < 90) { // Under 1h 30min
-                                                            warningMessage = '⚡ Short!';
-                                                            warningClass = 'layover-warning-short';
-                                                        }
-
-                                                        return (
-                                                            <div className="connection-info">
-                                                                Layover at {result.returnFlights![0].via} • {formatDuration(waitMinutes)} wait
-                                                                {warningMessage && <> <span className={`layover-warning ${warningClass}`}>{warningMessage}</span></>}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            ))}
-                                        </>
-                                    );
-                                })()}
-                            </div>
-
-
-                        </div>
-                    );
-                })}
+                {results.map((result, index) => (
+                    <ResultCard key={index} result={result} cityName={cityName} />
+                ))}
             </div>
         </div>
     );

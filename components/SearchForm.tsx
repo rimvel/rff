@@ -1,444 +1,200 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { useAirports, Airport } from '@/lib/useAirports';
+import { useMemo, useRef, useState } from 'react';
+import { useAirports } from '@/lib/useAirports';
+import { buildAirportIndex } from '@/lib/airportGroups';
+import { addDays, todayLocal } from '@/lib/time';
+import { DateDirection } from '@/lib/types';
+import AirportInput from './AirportInput';
 
-// Airport type is imported from @/lib/useAirports
-
-export interface SearchFormState {
+export interface SearchRequest {
     origin: string;
     dest: string;
     date: string;
-    returnDate: string;
-    roundTrip: boolean;
-    flexibleDeparture: boolean;
-    flexibleReturn: boolean;
-    departureDateRange: number;
-    returnDateRange: number;
-    departureDateDirection: string;
-    returnDateDirection: string;
+    returnDate?: string;
+    departureDateRange?: number;
+    returnDateRange?: number;
+    departureDateDirection?: DateDirection;
+    returnDateDirection?: DateDirection;
 }
 
 interface SearchFormProps {
-    onSearch: (origin: string, dest: string, date: string, returnDate?: string, departureDateRange?: number, returnDateRange?: number, departureDateDirection?: string, returnDateDirection?: string) => void;
+    onSearch: (request: SearchRequest) => void;
     isLoading: boolean;
-    initialValues?: Partial<SearchFormState>;
 }
 
-const getFlagEmoji = (countryCode: string) => {
-    return countryCode
-        .toUpperCase()
-        .replace(/./g, char => String.fromCodePoint(127397 + char.charCodeAt(0)));
-};
+const DEFAULT_TRIP_DAYS = 7;
+const RANGE_OPTIONS = [1, 2, 3, 5, 7];
 
-export default function SearchForm({ onSearch, isLoading, initialValues }: SearchFormProps) {
-    // Get tomorrow's date as default
-    const getTomorrowDate = () => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return tomorrow.toISOString().split('T')[0];
-    };
+const directionSymbol = (d: DateDirection) => (d === 'both' ? '±' : d === 'after' ? '+' : '-');
 
-    const { airports } = useAirports();
-    const [origin, setOrigin] = useState(initialValues?.origin || '');
-    const [dest, setDest] = useState(initialValues?.dest || '');
-    const [date, setDate] = useState(initialValues?.date || getTomorrowDate());
-    const [returnDate, setReturnDate] = useState(initialValues?.returnDate || '');
-    const [originSearch, setOriginSearch] = useState(initialValues?.origin || '');
-    const [destSearch, setDestSearch] = useState(initialValues?.dest || '');
-    const [showOriginDropdown, setShowOriginDropdown] = useState(false);
-    const [showDestDropdown, setShowDestDropdown] = useState(false);
-
-    // Determine initial roundTrip state: check initialValues first, otherwise default to false
-    const [roundTrip, setRoundTrip] = useState(
-        initialValues?.roundTrip !== undefined
-            ? initialValues.roundTrip
-            : !!initialValues?.returnDate // If return date is present, assume round trip
+function FlexSelector({ label, active, onToggle, direction, onDirection, range, onRange }: {
+    label: string;
+    active: boolean;
+    onToggle: () => void;
+    direction: DateDirection;
+    onDirection: (d: DateDirection) => void;
+    range: number;
+    onRange: (n: number) => void;
+}) {
+    return (
+        <div className={`pill-selector ${active ? 'active' : ''}`}>
+            <button type="button" className="pill-toggle" onClick={onToggle}>
+                <span className="icon">📅</span>
+                {label}
+            </button>
+            {active && (
+                <>
+                    <select
+                        className="pill-select"
+                        value={direction}
+                        onChange={e => onDirection(e.target.value as DateDirection)}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <option value="both">±</option>
+                        <option value="after">+</option>
+                        <option value="before">-</option>
+                    </select>
+                    <select
+                        className="pill-select"
+                        value={range}
+                        onChange={e => onRange(Number(e.target.value))}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {RANGE_OPTIONS.map(n => <option key={n} value={n}>{n}d</option>)}
+                    </select>
+                </>
+            )}
+        </div>
     );
+}
 
-    const [flexibleDeparture, setFlexibleDeparture] = useState(initialValues?.flexibleDeparture || false);
-    const [flexibleReturn, setFlexibleReturn] = useState(initialValues?.flexibleReturn || false);
-    const [departureDateRange, setDepartureDateRange] = useState(initialValues?.departureDateRange || 3);
-    const [returnDateRange, setReturnDateRange] = useState(initialValues?.returnDateRange || 3);
-    const [departureDateDirection, setDepartureDateDirection] = useState(initialValues?.departureDateDirection || 'both');
-    const [returnDateDirection, setReturnDateDirection] = useState(initialValues?.returnDateDirection || 'both');
+function DateField({ id, label, value, min, onChange, flexLabel }: {
+    id: string;
+    label: string;
+    value: string;
+    min: string;
+    onChange: (date: string) => void;
+    flexLabel?: string;
+}) {
+    return (
+        <div className="form-group">
+            <div className="date-with-flex">
+                <label htmlFor={id}>{label}</label>
+                {flexLabel && <span className="flex-indicator">{flexLabel}</span>}
+            </div>
+            <div className="date-input-wrapper">
+                <input
+                    id={id}
+                    type="date"
+                    value={value}
+                    onChange={e => e.target.value && onChange(e.target.value)}
+                    min={min}
+                    required
+                />
+                <div className="date-adjusters-overlay">
+                    <button
+                        type="button"
+                        className="date-adjuster-mini"
+                        onClick={() => {
+                            const prev = addDays(value, -1);
+                            if (prev >= min) onChange(prev);
+                        }}
+                        title="Previous day"
+                    >
+                        -
+                    </button>
+                    <button
+                        type="button"
+                        className="date-adjuster-mini"
+                        onClick={() => onChange(addDays(value, 1))}
+                        title="Next day"
+                    >
+                        +
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
-    // Refs for input fields
-    const originInputRef = useRef<HTMLInputElement>(null);
+export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
+    const { airports } = useAirports();
+    const index = useMemo(() => buildAirportIndex(airports), [airports]);
+
+    const [origin, setOrigin] = useState('');
+    const [dest, setDest] = useState('');
+    const [originText, setOriginText] = useState('');
+    const [destText, setDestText] = useState('');
+    const [date, setDate] = useState(() => addDays(todayLocal(), 1));
+    const [returnDate, setReturnDate] = useState('');
+    const [roundTrip, setRoundTrip] = useState(false);
+
+    const [flexibleDeparture, setFlexibleDeparture] = useState(false);
+    const [flexibleReturn, setFlexibleReturn] = useState(false);
+    const [departureDateRange, setDepartureDateRange] = useState(3);
+    const [returnDateRange, setReturnDateRange] = useState(3);
+    const [departureDateDirection, setDepartureDateDirection] = useState<DateDirection>('both');
+    const [returnDateDirection, setReturnDateDirection] = useState<DateDirection>('both');
+
     const destInputRef = useRef<HTMLInputElement>(null);
 
-    // Get unique countries from airports
-    const getCountriesWithAirports = () => {
-        const countryMap = new Map<string, { name: string; code: string; airportCodes: string[] }>();
-
-        airports.forEach(airport => {
-            const countryName = airport.country.name;
-            const countryCode = airport.country.code;
-
-            if (!countryMap.has(countryName)) {
-                countryMap.set(countryName, {
-                    name: countryName,
-                    code: countryCode,
-                    airportCodes: []
-                });
-            }
-            countryMap.get(countryName)!.airportCodes.push(airport.code);
-        });
-
-        return Array.from(countryMap.values());
-    };
-
-    // Get unique cities from airports (using macCity for grouping when available)
-    const getCitiesWithAirports = () => {
-        const cityMap = new Map<string, { name: string; countryCode: string; airportCodes: string[] }>();
-
-        airports.forEach(airport => {
-            // Priority: macCity (Metropolitan Area) > city
-            const city = airport.macCity || airport.city;
-            const cityName = city.name;
-            const cityKey = `${cityName}-${airport.country.code}`; // Unique city per country
-
-            if (!cityMap.has(cityKey)) {
-                cityMap.set(cityKey, {
-                    name: cityName,
-                    countryCode: airport.country.code,
-                    airportCodes: []
-                });
-            }
-            cityMap.get(cityKey)!.airportCodes.push(airport.code);
-        });
-
-        return Array.from(cityMap.values());
-    };
-
-    // Virtual Regions mapping
-    const getVirtualRegions = () => {
-        const regions: { name: string; countryCode: string; airportCodes: string[] }[] = [];
-
-        // Define groupings based on Ryanair's region names
-        const groups = [
-            {
-                name: 'Spain South',
-                countryCode: 'es',
-                match: ['Andalusia', 'Costa del Sol', 'Costa Calida', 'Costa Blanca']
-            },
-            {
-                name: 'Spain North',
-                countryCode: 'es',
-                match: ['Galicia', 'Cantabria', 'Costa Brava', 'Costa Dorada', 'Costa Azahar', 'Aragon']
-            },
-            {
-                name: 'Spain Islands',
-                countryCode: 'es',
-                match: ['Balearic Islands', 'Canary Isles']
-            },
-            {
-                name: 'Italy North',
-                countryCode: 'it',
-                match: ['Lombardy', 'Veneto', 'Piedmont', 'Friuli-Venezia Giulia', 'Liguria', 'Emilia-Romagna', 'Tuscany']
-            },
-            {
-                name: 'Italy South',
-                countryCode: 'it',
-                match: ['Campania', 'Puglia', 'Calabria', 'Sicily', 'Sardinia', 'Abruzzo', 'Lazio']
-            },
-            {
-                name: 'Greece Islands',
-                countryCode: 'gr',
-                match: ['Greek Islands']
-            },
-            {
-                name: 'Portugal Coast',
-                countryCode: 'pt',
-                match: ['Algarve', 'Lisbon']
-            }
-        ];
-
-        groups.forEach(group => {
-            const airportCodes = airports
-                .filter(a => a.country.code === group.countryCode && a.region && group.match.includes(a.region.name))
-                .map(a => a.code);
-
-            if (airportCodes.length > 0) {
-                regions.push({
-                    name: group.name,
-                    countryCode: group.countryCode,
-                    airportCodes
-                });
-            }
-        });
-
-        return regions;
-    };
-
-    const filterAirports = (search: string): {
-        airports: Airport[];
-        countries: { name: string; code: string; airportCodes: string[] }[];
-        cities: { name: string; countryCode: string; airportCodes: string[] }[];
-        virtualRegions: { name: string; countryCode: string; airportCodes: string[] }[];
-    } => {
-        if (!search) return { airports: [], countries: [], cities: [], virtualRegions: [] };
-        const s = search.toLowerCase();
-
-        // Filter individual airports
-        const matchingAirports = airports.filter(a =>
-            a.code.toLowerCase().includes(s) ||
-            a.name.toLowerCase().includes(s) ||
-            a.country.name.toLowerCase().includes(s) ||
-            a.city.name.toLowerCase().includes(s) ||
-            (a.macCity && a.macCity.name.toLowerCase().includes(s))
-        ).sort((a, b) => a.country.name.localeCompare(b.country.name));
-
-        // Check if search matches a country name
-        const countries = getCountriesWithAirports();
-        const matchingCountries = countries.filter((c: { name: string; airportCodes: string[] }) =>
-            c.name.toLowerCase().includes(s) && c.airportCodes.length > 1
-        );
-
-        // Check if search matches a city name
-        const cities = getCitiesWithAirports();
-        const matchingCities = cities.filter((c: { name: string; airportCodes: string[] }) =>
-            c.name.toLowerCase().includes(s) && c.airportCodes.length > 1
-        );
-
-        // Check if search matches a virtual region
-        const virtualRegions = getVirtualRegions();
-        const matchingVirtualRegions = virtualRegions.filter(r =>
-            r.name.toLowerCase().includes(s)
-        );
-
-        return { airports: matchingAirports, countries: matchingCountries, cities: matchingCities, virtualRegions: matchingVirtualRegions };
+    const changeDepartureDate = (newDate: string) => {
+        setDate(newDate);
+        if (roundTrip && !returnDate) {
+            setReturnDate(addDays(newDate, DEFAULT_TRIP_DAYS));
+        } else if (roundTrip && returnDate && newDate > returnDate) {
+            // Return can't be before departure
+            setReturnDate(newDate);
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (origin && dest && date) {
-            if (roundTrip && !returnDate) {
-                alert('Please select a return date');
-                return;
-            }
-            onSearch(
-                origin,
-                dest,
-                date,
-                roundTrip ? returnDate : undefined,
-                flexibleDeparture ? departureDateRange : undefined,
-                flexibleReturn && roundTrip ? returnDateRange : undefined,
-                flexibleDeparture ? departureDateDirection : undefined,
-                flexibleReturn && roundTrip ? returnDateDirection : undefined
-            );
+        if (!origin || !dest || !date) return;
+        if (roundTrip && !returnDate) {
+            alert('Please select a return date');
+            return;
         }
+        const useFlexReturn = roundTrip && flexibleReturn;
+        onSearch({
+            origin,
+            dest,
+            date,
+            returnDate: roundTrip ? returnDate : undefined,
+            departureDateRange: flexibleDeparture ? departureDateRange : undefined,
+            departureDateDirection: flexibleDeparture ? departureDateDirection : undefined,
+            returnDateRange: useFlexReturn ? returnDateRange : undefined,
+            returnDateDirection: useFlexReturn ? returnDateDirection : undefined,
+        });
     };
-
-    const selectOrigin = (airport: Airport) => {
-        setOrigin(airport.code);
-        setOriginSearch(`${airport.code} - ${airport.name}`);
-        setShowOriginDropdown(false);
-        // Focus destination input after selection
-        setTimeout(() => destInputRef.current?.focus(), 0);
-    };
-
-    const selectDest = (airport: Airport) => {
-        setDest(airport.code);
-        setDestSearch(`${airport.code} - ${airport.name}`);
-        setShowDestDropdown(false);
-    };
-
-    const originFiltered = filterAirports(originSearch);
-    const destFiltered = filterAirports(destSearch);
 
     const handleSwap = () => {
-        const tempOrigin = origin;
-        const tempOriginSearch = originSearch;
         setOrigin(dest);
-        setOriginSearch(destSearch);
-        setDest(tempOrigin);
-        setDestSearch(tempOriginSearch);
-    };
-
-    // Handle Enter key on origin input
-    const handleOriginKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            // Prioritize city selection, then country selection
-            if (originFiltered.cities.length > 0) {
-                const city = originFiltered.cities[0];
-                selectOriginCity(city);
-            } else if (originFiltered.virtualRegions.length > 0) {
-                const region = originFiltered.virtualRegions[0];
-                selectOriginVirtualRegion(region);
-            } else if (originFiltered.countries.length > 0) {
-                const country = originFiltered.countries[0];
-                selectOriginCountry(country);
-            } else if (originFiltered.airports.length > 0) {
-                selectOrigin(originFiltered.airports[0]);
-            }
-        }
-    };
-
-    // Handle Enter key on destination input
-    const handleDestKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            // Prioritize city selection, then country selection
-            if (destFiltered.cities.length > 0) {
-                const city = destFiltered.cities[0];
-                selectDestCity(city);
-            } else if (destFiltered.virtualRegions.length > 0) {
-                const region = destFiltered.virtualRegions[0];
-                selectDestVirtualRegion(region);
-            } else if (destFiltered.countries.length > 0) {
-                const country = destFiltered.countries[0];
-                selectDestCountry(country);
-            } else if (destFiltered.airports.length > 0) {
-                selectDest(destFiltered.airports[0]);
-            }
-        }
-    };
-
-    // Select all airports in a country for origin
-    const selectOriginCountry = (country: { name: string; code: string; airportCodes: string[] }) => {
-        setOrigin(country.airportCodes.join(','));
-        setOriginSearch(`${country.name} - All (${country.airportCodes.length})`);
-        setShowOriginDropdown(false);
-        setTimeout(() => destInputRef.current?.focus(), 0);
-    };
-
-    // Select all airports in a country for destination
-    const selectDestCountry = (country: { name: string; code: string; airportCodes: string[] }) => {
-        setDest(country.airportCodes.join(','));
-        setDestSearch(`${country.name} - All (${country.airportCodes.length})`);
-        setShowDestDropdown(false);
-    };
-
-    // Select all airports in a virtual region for origin
-    const selectOriginVirtualRegion = (region: { name: string; countryCode: string; airportCodes: string[] }) => {
-        setOrigin(region.airportCodes.join(','));
-        setOriginSearch(`${region.name} - All (${region.airportCodes.length})`);
-        setShowOriginDropdown(false);
-        setTimeout(() => destInputRef.current?.focus(), 0);
-    };
-
-    // Select all airports in a virtual region for destination
-    const selectDestVirtualRegion = (region: { name: string; countryCode: string; airportCodes: string[] }) => {
-        setDest(region.airportCodes.join(','));
-        setDestSearch(`${region.name} - All (${region.airportCodes.length})`);
-        setShowDestDropdown(false);
-    };
-
-    // Select all airports in a city for origin
-    const selectOriginCity = (city: { name: string; countryCode: string; airportCodes: string[] }) => {
-        setOrigin(city.airportCodes.join(','));
-        setOriginSearch(`${city.name} - All (${city.airportCodes.length})`);
-        setShowOriginDropdown(false);
-        setTimeout(() => destInputRef.current?.focus(), 0);
-    };
-
-    // Select all airports in a city for destination
-    const selectDestCity = (city: { name: string; countryCode: string; airportCodes: string[] }) => {
-        setDest(city.airportCodes.join(','));
-        setDestSearch(`${city.name} - All (${city.airportCodes.length})`);
-        setShowDestDropdown(false);
+        setOriginText(destText);
+        setDest(origin);
+        setDestText(originText);
     };
 
     return (
         <form onSubmit={handleSubmit} className="search-form">
             <div className="location-group">
-                <div className="form-group">
-                    <label htmlFor="origin">From</label>
-                    <div className="autocomplete-wrapper">
-                        <input
-                            ref={originInputRef}
-                            id="origin"
-                            type="text"
-                            value={originSearch}
-                            onChange={(e) => {
-                                setOriginSearch(e.target.value);
-                                setOrigin('');
-                                setShowOriginDropdown(true);
-                            }}
-                            onFocus={() => setShowOriginDropdown(true)}
-                            onKeyDown={handleOriginKeyDown}
-                            placeholder="Airport code or name"
-                            autoComplete="off"
-                            required
-                        />
-                        {originSearch && (
-                            <button
-                                type="button"
-                                className="clear-input-btn"
-                                onClick={() => {
-                                    setOriginSearch('');
-                                    setOrigin('');
-                                    originInputRef.current?.focus();
-                                }}
-                                title="Clear From"
-                            >
-                                ✕
-                            </button>
-                        )}
-                        {showOriginDropdown && (originFiltered.countries.length > 0 || originFiltered.cities.length > 0 || originFiltered.airports.length > 0 || originFiltered.virtualRegions.length > 0) && (
-                            <div className="autocomplete-dropdown">
-                                {/* Show regional options first */}
-                                {originFiltered.virtualRegions.map(region => (
-                                    <div
-                                        key={`vregion-${region.name}`}
-                                        className="autocomplete-item autocomplete-city"
-                                        onClick={() => selectOriginVirtualRegion(region)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(region.countryCode)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{region.name}</strong>
-                                            <span className="autocomplete-sub">Regional Group ({region.airportCodes.length} airports)</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* Show city options */}
-                                {originFiltered.cities.map(city => (
-                                    <div
-                                        key={`city-${city.name}-${city.countryCode}`}
-                                        className="autocomplete-item autocomplete-city"
-                                        onClick={() => selectOriginCity(city)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(city.countryCode)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{city.name}</strong>
-                                            <span className="autocomplete-sub">All Airports ({city.airportCodes.length})</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* Show country options */}
-                                {originFiltered.countries.map(country => (
-                                    <div
-                                        key={`country-${country.code}`}
-                                        className="autocomplete-item autocomplete-country"
-                                        onClick={() => selectOriginCountry(country)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(country.code)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{country.name}</strong>
-                                            <span className="autocomplete-sub">All Airports ({country.airportCodes.length})</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* Show individual airports */}
-                                {originFiltered.airports.map((a: Airport) => (
-                                    <div
-                                        key={a.code}
-                                        className="autocomplete-item"
-                                        onClick={() => selectOrigin(a)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(a.country.code)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{a.name} ({a.code})</strong>
-                                            <span className="autocomplete-sub">{a.country.name}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <AirportInput
+                    id="origin"
+                    label="From"
+                    index={index}
+                    text={originText}
+                    onTextChange={text => {
+                        setOriginText(text);
+                        setOrigin('');
+                    }}
+                    onSelect={(codes, text) => {
+                        setOrigin(codes);
+                        setOriginText(text);
+                        // Move on to the destination after picking an origin
+                        if (codes) setTimeout(() => destInputRef.current?.focus(), 0);
+                    }}
+                />
 
                 <button
                     type="button"
@@ -447,7 +203,6 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                     title="Swap Origin and Destination"
                 >
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 16V4M7 4L3 8M7 4L11 8M17 8v12M17 20l4-4M17 20l-4-4" style={{ display: 'none' }} />
                         <path d="M20 7H4" />
                         <path d="M20 7L16 3" />
                         <path d="M20 7L16 11" />
@@ -457,231 +212,42 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                     </svg>
                 </button>
 
-                <div className="form-group">
-                    <label htmlFor="dest">To</label>
-                    <div className="autocomplete-wrapper">
-                        <input
-                            ref={destInputRef}
-                            id="dest"
-                            type="text"
-                            value={destSearch}
-                            onChange={(e) => {
-                                setDestSearch(e.target.value);
-                                setDest('');
-                                setShowDestDropdown(true);
-                            }}
-                            onFocus={() => setShowDestDropdown(true)}
-                            onKeyDown={handleDestKeyDown}
-                            placeholder="Airport code or name"
-                            autoComplete="off"
-                            required
-                        />
-                        {destSearch && (
-                            <button
-                                type="button"
-                                className="clear-input-btn"
-                                onClick={() => {
-                                    setDestSearch('');
-                                    setDest('');
-                                    destInputRef.current?.focus();
-                                }}
-                                title="Clear To"
-                            >
-                                ✕
-                            </button>
-                        )}
-                        {showDestDropdown && (destFiltered.countries.length > 0 || destFiltered.cities.length > 0 || destFiltered.airports.length > 0 || destFiltered.virtualRegions.length > 0) && (
-                            <div className="autocomplete-dropdown">
-                                {/* Show regional options first */}
-                                {destFiltered.virtualRegions.map(region => (
-                                    <div
-                                        key={`vregion-${region.name}`}
-                                        className="autocomplete-item autocomplete-city"
-                                        onClick={() => selectDestVirtualRegion(region)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(region.countryCode)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{region.name}</strong>
-                                            <span className="autocomplete-sub">Regional Group ({region.airportCodes.length} airports)</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* Show city options */}
-                                {destFiltered.cities.map(city => (
-                                    <div
-                                        key={`city-${city.name}-${city.countryCode}`}
-                                        className="autocomplete-item autocomplete-city"
-                                        onClick={() => selectDestCity(city)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(city.countryCode)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{city.name}</strong>
-                                            <span className="autocomplete-sub">All Airports ({city.airportCodes.length})</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* Show country options */}
-                                {destFiltered.countries.map(country => (
-                                    <div
-                                        key={`country-${country.code}`}
-                                        className="autocomplete-item autocomplete-country"
-                                        onClick={() => selectDestCountry(country)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(country.code)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{country.name}</strong>
-                                            <span className="autocomplete-sub">All Airports ({country.airportCodes.length})</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {/* Show individual airports */}
-                                {destFiltered.airports.map((a: Airport) => (
-                                    <div
-                                        key={a.code}
-                                        className="autocomplete-item"
-                                        onClick={() => selectDest(a)}
-                                    >
-                                        <span className="flag-icon">{getFlagEmoji(a.country.code)}</span>
-                                        <div className="autocomplete-text">
-                                            <strong>{a.name} ({a.code})</strong>
-                                            <span className="autocomplete-sub">{a.country.name}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <AirportInput
+                    ref={destInputRef}
+                    id="dest"
+                    label="To"
+                    index={index}
+                    text={destText}
+                    onTextChange={text => {
+                        setDestText(text);
+                        setDest('');
+                    }}
+                    onSelect={(codes, text) => {
+                        setDest(codes);
+                        setDestText(text);
+                    }}
+                />
             </div>
 
             <div className="date-group">
-                <div className="form-group">
-                    <div className="date-with-flex">
-                        <label htmlFor="date">Departure</label>
-                        {flexibleDeparture && (
-                            <span className="flex-indicator">
-                                {departureDateDirection === 'both' ? '±' : departureDateDirection === 'after' ? '+' : '-'}{departureDateRange}d
-                            </span>
-                        )}
-                    </div>
-                    <div className="date-input-wrapper">
-                        <input
-                            id="date"
-                            type="date"
-                            value={date}
-                            onChange={(e) => {
-                                const newDate = e.target.value;
-                                setDate(newDate);
-                                if (roundTrip && newDate && !returnDate) {
-                                    const d = new Date(newDate);
-                                    d.setDate(d.getDate() + 7);
-                                    setReturnDate(d.toISOString().split('T')[0]);
-                                } else if (roundTrip && newDate && returnDate && newDate > returnDate) {
-                                    // Ensure return is not before departure
-                                    setReturnDate(newDate);
-                                }
-                            }}
-                            min={new Date().toISOString().split('T')[0]}
-                            required
-                        />
-                        <div className="date-adjusters-overlay">
-                            <button
-                                type="button"
-                                className="date-adjuster-mini"
-                                onClick={() => {
-                                    const currentDate = new Date(date);
-                                    currentDate.setDate(currentDate.getDate() - 1);
-                                    const minDate = new Date().toISOString().split('T')[0];
-                                    const newDate = currentDate.toISOString().split('T')[0];
-                                    if (newDate >= minDate) {
-                                        setDate(newDate);
-                                        if (roundTrip && !returnDate) {
-                                            const d = new Date(newDate);
-                                            d.setDate(d.getDate() + 7);
-                                            setReturnDate(d.toISOString().split('T')[0]);
-                                        }
-                                    }
-                                }}
-                                title="Previous day"
-                            >
-                                -
-                            </button>
-                            <button
-                                type="button"
-                                className="date-adjuster-mini"
-                                onClick={() => {
-                                    const currentDate = new Date(date);
-                                    currentDate.setDate(currentDate.getDate() + 1);
-                                    const newDate = currentDate.toISOString().split('T')[0];
-                                    setDate(newDate);
-                                    if (roundTrip && !returnDate) {
-                                        const d = new Date(newDate);
-                                        d.setDate(d.getDate() + 7);
-                                        setReturnDate(d.toISOString().split('T')[0]);
-                                    } else if (roundTrip && returnDate && newDate > returnDate) {
-                                        // Ensure return is not before departure
-                                        setReturnDate(newDate);
-                                    }
-                                }}
-                                title="Next day"
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <DateField
+                    id="date"
+                    label="Departure"
+                    value={date}
+                    min={todayLocal()}
+                    onChange={changeDepartureDate}
+                    flexLabel={flexibleDeparture ? `${directionSymbol(departureDateDirection)}${departureDateRange}d` : undefined}
+                />
 
                 {roundTrip && (
-                    <div className="form-group">
-                        <div className="date-with-flex">
-                            <label htmlFor="returnDate">Return</label>
-                            {flexibleReturn && (
-                                <span className="flex-indicator">
-                                    {returnDateDirection === 'both' ? '±' : returnDateDirection === 'after' ? '+' : '-'}{returnDateRange}d
-                                </span>
-                            )}
-                        </div>
-                        <div className="date-input-wrapper">
-                            <input
-                                id="returnDate"
-                                type="date"
-                                value={returnDate}
-                                onChange={(e) => setReturnDate(e.target.value)}
-                                min={date}
-                                required={roundTrip}
-                            />
-                            <div className="date-adjusters-overlay">
-                                <button
-                                    type="button"
-                                    className="date-adjuster-mini"
-                                    onClick={() => {
-                                        const currentDate = new Date(returnDate);
-                                        currentDate.setDate(currentDate.getDate() - 1);
-                                        const minDate = date;
-                                        const newDate = currentDate.toISOString().split('T')[0];
-                                        if (newDate >= minDate) {
-                                            setReturnDate(newDate);
-                                        }
-                                    }}
-                                    title="Previous day"
-                                >
-                                    -
-                                </button>
-                                <button
-                                    type="button"
-                                    className="date-adjuster-mini"
-                                    onClick={() => {
-                                        const currentDate = new Date(returnDate);
-                                        currentDate.setDate(currentDate.getDate() + 1);
-                                        setReturnDate(currentDate.toISOString().split('T')[0]);
-                                    }}
-                                    title="Next day"
-                                >
-                                    +
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <DateField
+                        id="returnDate"
+                        label="Return"
+                        value={returnDate}
+                        min={date}
+                        onChange={setReturnDate}
+                        flexLabel={flexibleReturn ? `${directionSymbol(returnDateDirection)}${returnDateRange}d` : undefined}
+                    />
                 )}
             </div>
 
@@ -699,11 +265,7 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                         className={`toggle-btn ${roundTrip ? 'active' : ''}`}
                         onClick={() => {
                             setRoundTrip(true);
-                            if (date) {
-                                const newReturn = new Date(date);
-                                newReturn.setDate(newReturn.getDate() + 7);
-                                setReturnDate(newReturn.toISOString().split('T')[0]);
-                            }
+                            if (date) setReturnDate(addDays(date, DEFAULT_TRIP_DAYS));
                         }}
                     >
                         Round Trip
@@ -711,80 +273,25 @@ export default function SearchForm({ onSearch, isLoading, initialValues }: Searc
                 </div>
 
                 <div className="flex-options">
-                    <div className={`pill-selector ${flexibleDeparture ? 'active' : ''}`}>
-                        <button
-                            type="button"
-                            className="pill-toggle"
-                            onClick={() => setFlexibleDeparture(!flexibleDeparture)}
-                        >
-                            <span className="icon">📅</span>
-                            Flex Departure
-                        </button>
-                        {flexibleDeparture && (
-                            <>
-                                <select
-                                    className="pill-select"
-                                    value={departureDateDirection}
-                                    onChange={(e) => setDepartureDateDirection(e.target.value)}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <option value="both">±</option>
-                                    <option value="after">+</option>
-                                    <option value="before">-</option>
-                                </select>
-                                <select
-                                    className="pill-select"
-                                    value={departureDateRange}
-                                    onChange={(e) => setDepartureDateRange(Number(e.target.value))}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <option value={1}>1d</option>
-                                    <option value={2}>2d</option>
-                                    <option value={3}>3d</option>
-                                    <option value={5}>5d</option>
-                                    <option value={7}>7d</option>
-                                </select>
-                            </>
-                        )}
-                    </div>
-
+                    <FlexSelector
+                        label="Flex Departure"
+                        active={flexibleDeparture}
+                        onToggle={() => setFlexibleDeparture(!flexibleDeparture)}
+                        direction={departureDateDirection}
+                        onDirection={setDepartureDateDirection}
+                        range={departureDateRange}
+                        onRange={setDepartureDateRange}
+                    />
                     {roundTrip && (
-                        <div className={`pill-selector ${flexibleReturn ? 'active' : ''}`}>
-                            <button
-                                type="button"
-                                className="pill-toggle"
-                                onClick={() => setFlexibleReturn(!flexibleReturn)}
-                            >
-                                <span className="icon">📅</span>
-                                Flex Return
-                            </button>
-                            {flexibleReturn && (
-                                <>
-                                    <select
-                                        className="pill-select"
-                                        value={returnDateDirection}
-                                        onChange={(e) => setReturnDateDirection(e.target.value)}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <option value="both">±</option>
-                                        <option value="after">+</option>
-                                        <option value="before">-</option>
-                                    </select>
-                                    <select
-                                        className="pill-select"
-                                        value={returnDateRange}
-                                        onChange={(e) => setReturnDateRange(Number(e.target.value))}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <option value={1}>1d</option>
-                                        <option value={2}>2d</option>
-                                        <option value={3}>3d</option>
-                                        <option value={5}>5d</option>
-                                        <option value={7}>7d</option>
-                                    </select>
-                                </>
-                            )}
-                        </div>
+                        <FlexSelector
+                            label="Flex Return"
+                            active={flexibleReturn}
+                            onToggle={() => setFlexibleReturn(!flexibleReturn)}
+                            direction={returnDateDirection}
+                            onDirection={setReturnDateDirection}
+                            range={returnDateRange}
+                            onRange={setReturnDateRange}
+                        />
                     )}
                 </div>
             </div>

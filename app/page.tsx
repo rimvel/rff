@@ -1,57 +1,47 @@
 'use client';
 
 import { useState } from 'react';
-import SearchForm from '@/components/SearchForm';
+import Link from 'next/link';
+import SearchForm, { SearchRequest } from '@/components/SearchForm';
 import FlightResults from '@/components/FlightResults';
 import ThemeToggle from '@/components/ThemeToggle';
+import { SearchResult } from '@/lib/types';
 
-interface RouteResult {
-  type: 'direct' | 'layover';
-  origin: string;
-  destination: string;
-  via?: string;
-  flights: any[];
-  totalPrice: number;
-  currency: string;
-  duration: number;
-  returnFlights?: any[];
-  isRoundTrip?: boolean;
-  carrier?: string;
+function buildSearchUrl(req: SearchRequest): string {
+  const params = new URLSearchParams({ origin: req.origin, dest: req.dest, date: req.date });
+  if (req.returnDate) params.set('returnDate', req.returnDate);
+  if (req.departureDateRange) params.set('dateRangeDays', String(req.departureDateRange));
+  if (req.departureDateDirection) params.set('dateDirection', req.departureDateDirection);
+  if (req.returnDateRange) params.set('returnDateRange', String(req.returnDateRange));
+  if (req.returnDateDirection) params.set('returnDateDirection', req.returnDateDirection);
+  return `/api/search?${params}`;
 }
 
 export default function Home() {
-  const [results, setResults] = useState<RouteResult[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async (origin: string, dest: string, date: string, returnDate?: string, departureDateRange?: number, returnDateRange?: number, departureDateDirection?: string, returnDateDirection?: string) => {
+  const handleSearch = async (req: SearchRequest) => {
     setIsLoading(true);
     setHasSearched(true);
+    setIsRoundTrip(!!req.returnDate);
     setResults([]);
+    setError(null);
 
     try {
-      let url = `/api/search?origin=${origin}&dest=${dest}&date=${date}`;
-      if (returnDate) {
-        url += `&returnDate=${returnDate}`;
+      const res = await fetch(buildSearchUrl(req));
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data)) {
+        setError(data?.error ?? 'Search failed. Please try again.');
+        return;
       }
-      if (departureDateRange) {
-        url += `&dateRangeDays=${departureDateRange}`;
-      }
-      if (returnDateRange) {
-        url += `&returnDateRange=${returnDateRange}`;
-      }
-      if (departureDateDirection) {
-        url += `&dateDirection=${departureDateDirection}`;
-      }
-      if (returnDateDirection) {
-        url += `&returnDateDirection=${returnDateDirection}`;
-      }
-      const res = await fetch(url);
-      const data = await res.json();
-      console.log('Search results received:', data);
       setResults(data);
     } catch (err) {
       console.error('Search failed:', err);
+      setError('Could not reach the server. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -61,10 +51,11 @@ export default function Home() {
     <div className="app-container">
       <header className="app-header-compact">
         <h1 className="app-title-compact">
-          <a href="/" className="no-underline text-current">
+          <Link href="/" className="no-underline text-current">
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static SVG logo */}
             <img src="/logo.svg" alt="Logo" className="logo-img-compact" />
             RYANAIR FLIGHT FINDER
-          </a>
+          </Link>
         </h1>
         <p className="app-subtitle">beyond direct flights</p>
       </header>
@@ -79,7 +70,13 @@ export default function Home() {
           </div>
         )}
 
-        {!isLoading && hasSearched && <FlightResults results={results} />}
+        {!isLoading && error && (
+          <div className="no-results">
+            <p>{error}</p>
+          </div>
+        )}
+
+        {!isLoading && !error && hasSearched && <FlightResults results={results} isRoundTrip={isRoundTrip} />}
       </main>
 
       <footer className="app-footer">

@@ -1,89 +1,54 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Airport } from './types';
 
-export interface Airport {
-    code: string;
-    name: string;
-    country: {
-        name: string;
-        code: string;
-    };
-    city: {
-        name: string;
-        code: string;
-    };
-    macCity?: {
-        name: string;
-        code: string;
-    };
-    region?: {
-        name: string;
-        code: string;
-    };
-}
+export type { Airport } from './types';
 
-// Module-level singleton cache shared across all component instances
+// Module-level cache shared by all components, so the list is fetched once per page load
 let airportCache: Airport[] | null = null;
 let fetchPromise: Promise<Airport[]> | null = null;
 
-async function fetchAirports(): Promise<Airport[]> {
-    if (airportCache) return airportCache;
+function fetchAirports(): Promise<Airport[]> {
+    if (airportCache) return Promise.resolve(airportCache);
 
-    // Deduplicate: if a fetch is already in-flight, reuse it
+    // Reuse a fetch that's already in flight
     if (!fetchPromise) {
         fetchPromise = fetch('/api/airports')
             .then(res => {
                 if (!res.ok) throw new Error(`Failed to fetch airports: ${res.status}`);
-                return res.json();
+                return res.json() as Promise<Airport[]>;
             })
-            .then((data: Airport[]) => {
+            .then(data => {
                 airportCache = data;
-                fetchPromise = null;
                 return data;
             })
-            .catch(err => {
+            .finally(() => {
                 fetchPromise = null;
-                throw err;
             });
     }
-
     return fetchPromise;
 }
 
 export function useAirports() {
-    const [airports, setAirports] = useState<Airport[]>(airportCache || []);
-    const [isLoading, setIsLoading] = useState(!airportCache);
+    const [airports, setAirports] = useState<Airport[]>(() => airportCache ?? []);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // If already cached, skip the fetch
-        if (airportCache) {
-            setAirports(airportCache);
-            setIsLoading(false);
-            return;
-        }
-
+        if (airportCache) return;
+        let cancelled = false;
         fetchAirports()
             .then(data => {
-                setAirports(data);
-                setIsLoading(false);
+                if (!cancelled) setAirports(data);
             })
             .catch(err => {
                 console.error('Failed to load airports', err);
-                setError('Failed to load airports');
-                setIsLoading(false);
+                if (!cancelled) setError('Failed to load airports');
             });
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
-    return { airports, isLoading, error };
-}
-
-/**
- * Get the display name for an airport code.
- * Uses the cached airport data if available.
- */
-export function getAirportName(code: string, airports: Airport[]): string {
-    const airport = airports.find(a => a.code === code);
-    return airport?.name || code;
+    return { airports, isLoading: airports.length === 0 && !error, error };
 }

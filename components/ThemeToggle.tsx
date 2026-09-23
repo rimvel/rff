@@ -1,34 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+
+type Theme = 'light' | 'dark';
+
+function readStoredTheme(): Theme {
+    try {
+        return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+    } catch {
+        return 'light';
+    }
+}
+
+const subscribe = (onChange: () => void) => {
+    window.addEventListener('storage', onChange);
+    return () => window.removeEventListener('storage', onChange);
+};
 
 export default function ThemeToggle() {
-    const [mounted, setMounted] = useState(false);
-    const [theme, setTheme] = useState<'light' | 'dark'>('light');
+    // null while rendering on the server, so the button only appears once we know the stored theme
+    const storedTheme = useSyncExternalStore<Theme | null>(subscribe, readStoredTheme, () => null);
+    const [chosenTheme, setChosenTheme] = useState<Theme | null>(null);
+    const theme = chosenTheme ?? storedTheme;
 
-    // Effect to set initial state
     useEffect(() => {
-        setMounted(true);
-        const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-        if (storedTheme) {
-            setTheme(storedTheme);
-            document.documentElement.setAttribute('data-theme', storedTheme);
-        } else {
-            // Default to light
-            document.documentElement.setAttribute('data-theme', 'light');
-        }
-    }, []);
+        if (theme) document.documentElement.setAttribute('data-theme', theme);
+    }, [theme]);
+
+    if (!theme) {
+        return <div style={{ width: '2rem', height: '2rem' }}></div>; // Placeholder
+    }
 
     const toggleTheme = () => {
         const newTheme = theme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-        document.documentElement.setAttribute('data-theme', newTheme);
+        setChosenTheme(newTheme);
+        try {
+            localStorage.setItem('theme', newTheme);
+        } catch {
+            // Storage unavailable (e.g. private mode); the theme still applies for this visit
+        }
     };
-
-    if (!mounted) {
-        return <div style={{ width: '2rem', height: '2rem' }}></div>; // Placeholder
-    }
 
     return (
         <button
