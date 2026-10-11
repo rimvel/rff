@@ -20,10 +20,12 @@ interface AirportInputProps {
     onSelect: (codes: string) => void;
     /** Offer "Anywhere" (cheapest destinations) as a choice */
     allowAnywhere?: boolean;
+    /** Validation message to show under the field */
+    error?: string;
 }
 
 const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function AirportInput(
-    { id, label, index, text, onTextChange, onSelect, allowAnywhere = false },
+    { id, label, index, text, onTextChange, onSelect, allowAnywhere = false, error },
     ref,
 ) {
     const [open, setOpen] = useState(false);
@@ -84,7 +86,7 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
     );
 
     return (
-        <div className="form-group">
+        <div className={`form-group ${error ? 'has-error' : ''}`}>
             <label htmlFor={id}>{label}</label>
             <div className="autocomplete-wrapper">
                 <input
@@ -101,7 +103,8 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
                     onKeyDown={handleKeyDown}
                     placeholder="Airport code or name"
                     autoComplete="off"
-                    required
+                    aria-invalid={!!error}
+                    aria-describedby={error ? `${id}-error` : undefined}
                 />
                 {text && (
                     <button
@@ -151,6 +154,7 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
                     </div>
                 )}
             </div>
+            {error && <p className="field-error" id={`${id}-error`}>{error}</p>}
         </div>
     );
 });

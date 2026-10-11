@@ -29,6 +29,7 @@ describe('labelFor', () => {
     it('gives short names for the recent searches list', () => {
         expect(shortLabelFor('GRO', index)).toBe('Barcelona');
         expect(shortLabelFor('BCN,GRO', index)).toBe('Barcelona');
-        expect(shortLabelFor('VNO,AGP', index)).toBe('2 airports');
+        expect(shortLabelFor('VNO,AGP', index)).toBe('Vilnius, Malaga');
+        expect(shortLabelFor('VNO,AGP,BCN,XXX', index)).toBe('4 airports');
     });
 });
