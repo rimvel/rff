@@ -43,10 +43,14 @@ export class TtlCache<T> {
     }
 }
 
-/** Run at most `limit` tasks at the same time. */
-export function createLimiter(limit: number) {
+/**
+ * Run at most `limit` tasks at the same time, and start them at least `minIntervalMs` apart
+ * (so bursts are spread out).
+ */
+export function createLimiter(limit: number, minIntervalMs = 0) {
     let active = 0;
     const queue: (() => void)[] = [];
+    let nextStart = 0;
 
     const next = () => {
         active--;
@@ -59,6 +63,12 @@ export function createLimiter(limit: number) {
         }
         active++;
         try {
+            if (minIntervalMs > 0) {
+                const now = Date.now();
+                const wait = nextStart - now;
+                nextStart = Math.max(now, nextStart) + minIntervalMs;
+                if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+            }
             return await task();
         } finally {
             next();
