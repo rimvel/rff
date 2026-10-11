@@ -8,6 +8,10 @@ Live at Azure Web App `rffapp`.
 
 ## How it works
 
+Fares come from Ryanair's "cheapest per day" endpoint, which returns a whole month for a route in one
+request, so flexible dates cost almost nothing extra. Results stream to the page as they're found: direct
+flights first (about 0.2 s), then connections. Flight numbers are looked up afterwards for the cheapest results.
+
 1. **Direct flight**: the cheapest fare on the chosen day.
 2. **One stop**: every airport that both ends fly to is tried as a hub. A connection is kept if the wait
    at the hub is between 2 and 12 hours.
@@ -32,11 +36,14 @@ bookmarked, and Back/Forward work. The last 5 searches are remembered in the bro
 | `lib/finder.ts` | Finds direct and one-stop routes for one airport pair and date |
 | `lib/search.ts` | Validates search input, expands flexible dates, builds round trips |
 | `lib/time.ts` | Local time ↔ UTC conversion and date helpers |
+| `lib/calendar.ts` | Cheapest price per day for a month (the price calendar) |
+| `lib/events.ts` | Messages streamed from the search API to the page |
 | `lib/airportGroups.ts` | City / region / country groupings for the airport picker |
 | `lib/searchUrl.ts` | Search and result-view settings ↔ page address |
 | `lib/resultFilters.ts` | Sorting and filtering of results |
 | `lib/recentSearches.ts` | Recent searches stored in the browser |
-| `app/api/search` | `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
+| `app/api/search` | Streams results as newline-separated JSON (see `lib/events.ts`). `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
+| `app/api/calendar` | `GET /api/calendar?origin=VNO&dest=BCN&month=2026-11` → cheapest price per day |
 | `app/api/airports` | List of active Ryanair airports (cached 24h) |
 | `components/` | Search form, airport picker, results |
 | `tests/` | Unit tests (Vitest) |

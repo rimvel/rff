@@ -1,6 +1,6 @@
-import { getOneWayFares, getRoutes } from './ryanair';
+import { getDayFare, getRoutes } from './ryanair';
 import { minutesAtSamePlace, minutesBetween } from './time';
-import { Flight, RouteResult } from './types';
+import { Flight, SearchResult } from './types';
 
 export type { RouteResult } from './types';
 
@@ -19,63 +19,74 @@ export function connectionMinutes(first: Flight, second: Flight): number {
     return minutesAtSamePlace(first.arrivalDate, second.departureDate);
 }
 
+export function round2(n: number): number {
+    return Math.round(n * 100) / 100;
+}
+
+function directResult(flight: Flight, searchDate: string, timeZones: Map<string, string>): SearchResult {
+    return {
+        type: 'direct',
+        origin: flight.origin,
+        destination: flight.destination,
+        flights: [flight],
+        totalPrice: flight.price.value,
+        currency: flight.price.currencyCode,
+        duration: tripDuration([flight], timeZones),
+        searchDate,
+    };
+}
+
+/** One-stop trip if the connection time works, otherwise null. */
+export function layoverResult(first: Flight, second: Flight, searchDate: string, timeZones: Map<string, string>): SearchResult | null {
+    const wait = connectionMinutes(first, second);
+    if (wait < MIN_CONNECTION_MINUTES || wait > MAX_CONNECTION_MINUTES) return null;
+    return {
+        type: 'layover',
+        origin: first.origin,
+        destination: second.destination,
+        via: first.destination,
+        flights: [first, second],
+        totalPrice: round2(first.price.value + second.price.value),
+        currency: first.price.currencyCode,
+        duration: tripDuration([first, second], timeZones),
+        searchDate,
+    };
+}
+
+/** Cheapest direct flight on each of the dates. Fares for a whole month come in one request. */
+export async function findDirect(origin: string, dest: string, dates: string[], timeZones: Map<string, string> = new Map()): Promise<SearchResult[]> {
+    const flights = await Promise.all(dates.map(date => getDayFare(origin, dest, date)));
+    return flights.flatMap((f, i) => (f ? [directResult(f, dates[i], timeZones)] : []));
+}
+
+/** Airports both ends fly to, which could work as a one-stop connection. */
+export async function findHubs(origin: string, dest: string): Promise<string[]> {
+    const [fromOrigin, fromDest] = await Promise.all([getRoutes(origin), getRoutes(dest)]);
+    const toDest = new Set(fromDest);
+    return fromOrigin.filter(hub => toDest.has(hub) && hub !== origin && hub !== dest);
+}
+
+/** One-stop trips via every possible hub, on each of the dates. */
+export async function findOneStop(origin: string, dest: string, dates: string[], timeZones: Map<string, string> = new Map()): Promise<SearchResult[]> {
+    const hubs = await findHubs(origin, dest);
+    // Outgoing requests are rate-limited globally in ryanair.ts, so run everything at once
+    const perHub = await Promise.all(hubs.map(hub => Promise.all(dates.map(async date => {
+        const [first, second] = await Promise.all([getDayFare(origin, hub, date), getDayFare(hub, dest, date)]);
+        return first && second ? layoverResult(first, second, date, timeZones) : null;
+    }))));
+    return perHub.flat().filter((r): r is SearchResult => r !== null);
+}
+
+/** Direct and one-stop trips for one date, cheapest first. */
 export async function findCheapestRoutes(
     origin: string,
     dest: string,
     date: string,
     timeZones: Map<string, string> = new Map(),
-): Promise<RouteResult[]> {
-    const results: RouteResult[] = [];
-
-    const [direct, routesFromOrigin, routesFromDest] = await Promise.all([
-        getOneWayFares(origin, dest, date),
-        getRoutes(origin),
-        getRoutes(dest),
+): Promise<SearchResult[]> {
+    const [direct, oneStop] = await Promise.all([
+        findDirect(origin, dest, [date], timeZones),
+        findOneStop(origin, dest, [date], timeZones),
     ]);
-
-    // 1. Direct flight
-    if (direct) {
-        results.push({
-            type: 'direct',
-            origin,
-            destination: dest,
-            flights: [direct],
-            totalPrice: direct.price.value,
-            currency: direct.price.currencyCode,
-            duration: tripDuration([direct], timeZones),
-        });
-    }
-
-    // 2. One stop via any airport both ends fly to
-    const fromDest = new Set(routesFromDest);
-    const hubs = routesFromOrigin.filter(hub => fromDest.has(hub) && hub !== origin && hub !== dest);
-
-    // Outgoing requests are rate-limited globally in ryanair.ts, so run all hubs at once
-    await Promise.all(hubs.map(async hub => {
-        const [flightA, flightB] = await Promise.all([
-            getOneWayFares(origin, hub, date),
-            getOneWayFares(hub, dest, date),
-        ]);
-        if (!flightA || !flightB) return;
-
-        const wait = connectionMinutes(flightA, flightB);
-        if (wait < MIN_CONNECTION_MINUTES || wait > MAX_CONNECTION_MINUTES) return;
-
-        results.push({
-            type: 'layover',
-            origin,
-            destination: dest,
-            via: hub,
-            flights: [flightA, flightB],
-            totalPrice: round2(flightA.price.value + flightB.price.value),
-            currency: flightA.price.currencyCode,
-            duration: tripDuration([flightA, flightB], timeZones),
-        });
-    }));
-
-    return results.sort((a, b) => a.totalPrice - b.totalPrice);
-}
-
-export function round2(n: number): number {
-    return Math.round(n * 100) / 100;
+    return [...direct, ...oneStop].sort((a, b) => a.totalPrice - b.totalPrice);
 }

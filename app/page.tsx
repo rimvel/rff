@@ -4,18 +4,22 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
 import FlightResults from '@/components/FlightResults';
+import PriceCalendar from '@/components/PriceCalendar';
 import RecentSearches from '@/components/RecentSearches';
 import ThemeToggle from '@/components/ThemeToggle';
 import { buildAirportIndex, shortLabelFor } from '@/lib/airportGroups';
+import { applyFlightNumbers, readEvents } from '@/lib/events';
 import { saveRecentSearch } from '@/lib/recentSearches';
-import { readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
+import { moveTrip, readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
 import { SearchResult } from '@/lib/types';
 import { useAirports } from '@/lib/useAirports';
 import { setQueryString, useFormVersion, useQueryString, useToday } from '@/lib/useUrl';
 
 interface SearchOutcome {
   key: string;
-  results: SearchResult[];
+  byPair: Record<string, SearchResult[]>; // results arrive per airport pair
+  flightNumbers: Record<string, string>;
+  complete: boolean;
   error: string | null;
 }
 
@@ -36,24 +40,46 @@ export default function Home() {
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
   const [searchCount, setSearchCount] = useState(0); // bumped to repeat the same search
   const runId = `${key}#${searchCount}`;
-  const isLoading = !!request && outcome?.key !== runId;
+  const current = outcome?.key === runId ? outcome : null;
+  const results = useMemo(
+    () => (current ? applyFlightNumbers(Object.values(current.byPair).flat(), current.flightNumbers) : []),
+    [current],
+  );
+  const isLoading = !!request && (!current || (!current.complete && !current.error && results.length === 0));
+  const isSearchingMore = !!current && !current.complete && !current.error && results.length > 0;
 
   useEffect(() => {
     const req = readSearch(new URLSearchParams(key));
     if (!req) return;
     const controller = new AbortController();
-    const finish = (results: SearchResult[], error: string | null) => setOutcome({ key: runId, results, error });
+    const update = (change: (o: SearchOutcome) => Partial<SearchOutcome>) =>
+      setOutcome(o => {
+        if (controller.signal.aborted) return o; // a newer search has started
+        const base = o?.key === runId ? o : { key: runId, byPair: {}, flightNumbers: {}, complete: false, error: null };
+        return { ...base, ...change(base) };
+      });
 
     fetch(toApiUrl(req), { signal: controller.signal })
       .then(async res => {
-        const data = await res.json().catch(() => null);
-        if (!res.ok || !Array.isArray(data)) finish([], data?.error ?? 'Search failed. Please try again.');
-        else finish(data, null);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          update(() => ({ error: data?.error ?? 'Search failed. Please try again.' }));
+          return;
+        }
+        await readEvents(res, event => {
+          if (event.type === 'results') update(o => ({ byPair: { ...o.byPair, [event.pair]: event.results } }));
+          else if (event.type === 'complete') update(() => ({ complete: true }));
+          else if (event.type === 'flightNumbers') update(o => ({ flightNumbers: { ...o.flightNumbers, ...event.numbers } }));
+          else if (event.type === 'error') update(() => ({ error: event.error }));
+        });
+        update(() => ({ complete: true })); // in case the stream ended early
       })
       .catch(err => {
         if (controller.signal.aborted) return;
         console.error('Search failed:', err);
-        finish([], 'Could not reach the server. Check your connection and try again.');
+        update(o => (Object.keys(o.byPair).length > 0
+          ? { complete: true } // keep what was found
+          : { error: 'Could not reach the server. Check your connection and try again.' }));
       });
 
     return () => controller.abort();
@@ -114,16 +140,30 @@ export default function Home() {
           </div>
         )}
 
-        {!isLoading && outcome?.error && (
+        {request && !current?.error && (
+          <PriceCalendar
+            key={`${request.origin}|${request.dest}|${request.date.slice(0, 7)}`}
+            request={request}
+            onPickDate={date => setQueryString(toPageParams(moveTrip(request, date)))} />
+        )}
+
+        {!isLoading && current?.error && (
           <div className="no-results">
-            <p>{outcome.error}</p>
+            <p>{current.error}</p>
           </div>
         )}
 
-        {!isLoading && request && outcome && !outcome.error && (
+        {isSearchingMore && (
+          <div className="searching-more">
+            <span className="spinner-small" aria-hidden="true"></span>
+            Showing direct flights · still looking for connections…
+          </div>
+        )}
+
+        {!isLoading && request && current && !current.error && (
           <FlightResults
-            key={outcome.key}
-            results={outcome.results}
+            key={current.key}
+            results={results}
             isRoundTrip={!!request.returnDate}
             view={view}
             onViewChange={handleViewChange}

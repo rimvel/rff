@@ -73,6 +73,15 @@ export function addDays(date: string, days: number): string {
     return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
+/** The date plus flexible days before and/or after it. */
+export function expandDates(date: string, rangeDays: number, direction: 'both' | 'after' | 'before'): string[] {
+    const from = direction === 'after' ? 0 : -rangeDays;
+    const to = direction === 'before' ? 0 : rangeDays;
+    const dates: string[] = [];
+    for (let i = from; i <= to; i++) dates.push(addDays(date, i));
+    return dates;
+}
+
 /** Today's date as "YYYY-MM-DD" in the user's own time zone (not UTC). */
 export function todayLocal(): string {
     const now = new Date();

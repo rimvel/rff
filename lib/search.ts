@@ -1,7 +1,10 @@
-import { findCheapestRoutes, round2 } from './finder';
-import { getTimeZones, isAirportCode } from './ryanair';
-import { addDays, localToUtcMs } from './time';
-import { DateDirection, RouteResult, SearchResult } from './types';
+import { applyFlightNumbers, flightKey, SearchEvent } from './events';
+import { findDirect, findOneStop, round2 } from './finder';
+import { getFlightNumber, getTimeZones, isAirportCode } from './ryanair';
+import { addDays, expandDates, localToUtcMs } from './time';
+
+export { expandDates };
+import { DateDirection, Flight, RouteResult, SearchResult } from './types';
 
 // Limits that keep one search from sending thousands of requests to Ryanair
 export const MAX_DATE_RANGE_DAYS = 7;
@@ -94,13 +97,6 @@ export function parseSearchParams(sp: URLSearchParams): ParseResult {
     return { ok: true, params };
 }
 
-export function expandDates(date: string, rangeDays: number, direction: DateDirection): string[] {
-    const from = direction === 'after' ? 0 : -rangeDays;
-    const to = direction === 'before' ? 0 : rangeDays;
-    const dates: string[] = [];
-    for (let i = from; i <= to; i++) dates.push(addDays(date, i));
-    return dates;
-}
 
 /**
  * Pair each outbound option with the cheapest return options that depart after it lands.
@@ -124,27 +120,103 @@ export function combineRoundTrips(outbound: SearchResult[], returns: RouteResult
     });
 }
 
-export async function runSearch(p: SearchParams): Promise<SearchResult[]> {
+/** Turns tasks that each push messages into one stream of messages, in the order they happen. */
+async function* merge<T>(tasks: ((emit: (item: T) => void) => Promise<void>)[]): AsyncGenerator<T> {
+    const queue: T[] = [];
+    let wake: (() => void) | null = null;
+    const emit = (item: T) => {
+        queue.push(item);
+        wake?.();
+    };
+    let running = tasks.length;
+    for (const task of tasks) {
+        task(emit)
+            .catch(e => console.error('Search task failed:', e))
+            .finally(() => {
+                running--;
+                wake?.();
+            });
+    }
+    while (running > 0 || queue.length > 0) {
+        if (queue.length === 0) await new Promise<void>(resolve => (wake = resolve));
+        wake = null;
+        yield* queue.splice(0);
+    }
+}
+
+const byPrice = (a: SearchResult, b: SearchResult) => a.totalPrice - b.totalPrice;
+
+/** Most flight numbers to look up after a search (each is one request to Ryanair). */
+const MAX_FLIGHT_NUMBER_LOOKUPS = 120;
+
+/**
+ * Search, sending results as they're found: direct flights first, then one-stop connections.
+ * Afterwards, flight numbers are looked up for the cheapest results.
+ */
+export async function* streamSearch(p: SearchParams): AsyncGenerator<SearchEvent> {
     const timeZones = await getTimeZones();
     const outDates = expandDates(p.date, p.dateRangeDays, p.dateDirection);
     const returnDates = p.returnDate ? expandDates(p.returnDate, p.returnDateRange, p.returnDateDirection) : [];
-
     const pairs = p.origins.flatMap(origin => p.dests.filter(dest => dest !== origin).map(dest => ({ origin, dest })));
+    // Keep the total sent to the page reasonable when many airports are searched
+    const perPairLimit = Math.max(MAX_RESULTS / 10, Math.ceil((MAX_RESULTS * 3) / Math.max(pairs.length, 1)));
+    const finalResults = new Map<string, SearchResult[]>();
 
-    // Outgoing requests are rate-limited and cached in ryanair.ts, so it's fine to start everything at once
-    const perPair = await Promise.all(pairs.map(async ({ origin, dest }) => {
-        const outboundPerDate = await Promise.all(outDates.map(async searchDate =>
-            (await findCheapestRoutes(origin, dest, searchDate, timeZones)).map(r => ({ ...r, searchDate }))
-        ));
-        const outbound: SearchResult[] = outboundPerDate.flat();
+    const tasks = pairs.map(({ origin, dest }) => async (emit: (e: SearchEvent) => void) => {
+        const pair = `${origin}-${dest}`;
+        const send = (results: SearchResult[], final: boolean) => {
+            const sorted = [...results].sort(byPrice).slice(0, perPairLimit);
+            if (final) finalResults.set(pair, sorted);
+            if (final || sorted.length > 0) emit({ type: 'results', pair, results: sorted, final });
+        };
 
-        if (!p.returnDate || outbound.length === 0) return outbound;
+        // Start everything; direct flights need far fewer requests, so they arrive first
+        const outDirect = findDirect(origin, dest, outDates, timeZones);
+        const outOneStop = findOneStop(origin, dest, outDates, timeZones);
 
-        const returnsPerDate = await Promise.all(returnDates.map(async searchDate =>
-            (await findCheapestRoutes(dest, origin, searchDate, timeZones)).map(r => ({ ...r, searchDate }))
-        ));
-        return combineRoundTrips(outbound, returnsPerDate.flat());
-    }));
+        if (!p.returnDate) {
+            send(await outDirect, false);
+            send([...(await outDirect), ...(await outOneStop)], true);
+            return;
+        }
 
-    return perPair.flat().sort((a, b) => a.totalPrice - b.totalPrice).slice(0, MAX_RESULTS);
+        const retDirect = findDirect(dest, origin, returnDates, timeZones);
+        const retOneStop = findOneStop(dest, origin, returnDates, timeZones);
+        send(combineRoundTrips(await outDirect, await retDirect), false);
+        send(combineRoundTrips(
+            [...(await outDirect), ...(await outOneStop)],
+            [...(await retDirect), ...(await retOneStop)],
+        ), true);
+    });
+
+    yield* merge(tasks);
+    yield { type: 'complete' };
+
+    // Flight numbers for the cheapest results (month fares don't include them)
+    const cheapest = [...finalResults.values()].flat().sort(byPrice).slice(0, MAX_RESULTS / 2);
+    const missing = new Map<string, Flight>();
+    for (const r of cheapest) {
+        for (const f of [...r.flights, ...(r.returnFlights?.[0]?.flights ?? [])]) {
+            if (!f.flightNumber && missing.size < MAX_FLIGHT_NUMBER_LOOKUPS) missing.set(flightKey(f), f);
+        }
+    }
+    if (missing.size > 0) {
+        const numbers: Record<string, string> = {};
+        await Promise.all([...missing].map(async ([key, f]) => {
+            const n = await getFlightNumber(f);
+            if (n) numbers[key] = n;
+        }));
+        yield { type: 'flightNumbers', numbers };
+    }
+}
+
+/** Whole search at once (used by tests): every result, cheapest first. */
+export async function runSearch(p: SearchParams): Promise<SearchResult[]> {
+    const byPair = new Map<string, SearchResult[]>();
+    let numbers: Record<string, string> = {};
+    for await (const event of streamSearch(p)) {
+        if (event.type === 'results') byPair.set(event.pair, event.results);
+        if (event.type === 'flightNumbers') numbers = event.numbers;
+    }
+    return applyFlightNumbers([...byPair.values()].flat(), numbers).sort(byPrice).slice(0, MAX_RESULTS);
 }
