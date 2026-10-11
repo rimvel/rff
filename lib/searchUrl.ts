@@ -26,6 +26,9 @@ export interface ResultView {
 
 export const DEFAULT_VIEW: ResultView = { sort: 'cheapest', directOnly: false };
 
+/** Destination meaning "show the cheapest places to fly to" */
+export const ANYWHERE = 'ANYWHERE';
+
 const CODES = /^[A-Z]{3}(,[A-Z]{3})*$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -48,7 +51,7 @@ export function readSearch(params: URLSearchParams): SearchRequest | null {
     const origin = (params.get('from') ?? '').toUpperCase();
     const dest = (params.get('to') ?? '').toUpperCase();
     const date = params.get('date') ?? '';
-    if (!CODES.test(origin) || !CODES.test(dest) || !DATE.test(date)) return null;
+    if (!CODES.test(origin) || !(CODES.test(dest) || dest === ANYWHERE) || !DATE.test(date)) return null;
 
     const req: SearchRequest = { origin, dest, date };
     const returnDate = params.get('return');

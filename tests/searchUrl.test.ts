@@ -25,6 +25,11 @@ describe('page address', () => {
         expect(readView(new URLSearchParams('sort=nonsense&maxPrice=-5'))).toEqual({ sort: 'cheapest', directOnly: false, maxLayoverHours: undefined, maxPrice: undefined });
     });
 
+    it('accepts "Anywhere" as a destination only', () => {
+        expect(readSearch(new URLSearchParams('from=VNO&to=anywhere&date=2026-10-15'))?.dest).toBe('ANYWHERE');
+        expect(readSearch(new URLSearchParams('from=ANYWHERE&to=VNO&date=2026-10-15'))).toBeNull();
+    });
+
     it('accepts lower-case codes from hand-typed links', () => {
         expect(readSearch(new URLSearchParams('from=vno&to=stn&date=2026-10-15'))?.origin).toBe('VNO');
     });

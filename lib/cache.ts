@@ -1,5 +1,5 @@
 // Small in-memory helpers for the server: a TTL cache that also de-duplicates
-// in-flight requests, and a concurrency limiter for outgoing calls.
+// in-flight requests, a concurrency limiter for outgoing calls, and a stream merger.
 
 interface Entry<T> {
     value: Promise<T>;
@@ -33,6 +33,11 @@ export class TtlCache<T> {
         return value;
     }
 
+    /** Store a value that was obtained some other way. */
+    set(key: string, value: T) {
+        this.entries.set(key, { value: Promise.resolve(value), expires: Date.now() + this.ttlMs });
+    }
+
     clear() {
         this.entries.clear();
     }
@@ -59,4 +64,28 @@ export function createLimiter(limit: number) {
             next();
         }
     };
+}
+
+/** Turns tasks that each push messages into one stream of messages, in the order they happen. */
+export async function* merge<T>(tasks: ((emit: (item: T) => void) => Promise<void>)[]): AsyncGenerator<T> {
+    const queue: T[] = [];
+    let wake: (() => void) | null = null;
+    const emit = (item: T) => {
+        queue.push(item);
+        wake?.();
+    };
+    let running = tasks.length;
+    for (const task of tasks) {
+        task(emit)
+            .catch(e => console.error('Search task failed:', e))
+            .finally(() => {
+                running--;
+                wake?.();
+            });
+    }
+    while (running > 0 || queue.length > 0) {
+        if (queue.length === 0) await new Promise<void>(resolve => (wake = resolve));
+        wake = null;
+        yield* queue.splice(0);
+    }
 }

@@ -1,3 +1,4 @@
+import { ANYWHERE } from './searchUrl';
 import { Airport } from './types';
 
 export interface AirportGroup {
@@ -94,6 +95,7 @@ export function searchAirports(index: AirportIndex, search: string): AirportMatc
  */
 export function labelFor(codes: string, index: AirportIndex): string {
     if (!codes) return '';
+    if (codes === ANYWHERE) return '🌍 Anywhere';
     const list = codes.split(',');
     if (list.length === 1) {
         const airport = index.airports.find(a => a.code === list[0]);
@@ -107,6 +109,7 @@ export function labelFor(codes: string, index: AirportIndex): string {
 
 /** Short place name for compact displays: "Vilnius", "Barcelona", or "3 airports". */
 export function shortLabelFor(codes: string, index: AirportIndex): string {
+    if (codes === ANYWHERE) return 'Anywhere';
     const list = codes.split(',');
     if (list.length === 1) {
         const airport = index.airports.find(a => a.code === list[0]);

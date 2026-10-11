@@ -18,6 +18,12 @@ flights first (about 0.2 s), then connections. Flight numbers are looked up afte
 3. **Round trips**: each outbound option is paired with the 5 cheapest return options (across all flexible
    return dates) that leave after it lands.
 
+**Anywhere**: choose "🌍 Anywhere" as the destination to list the cheapest places to fly to from the
+chosen airport(s), direct or with one stop, one row per destination (the cheapest option, plus the cheapest
+direct one when different). It asks Ryanair for every destination from the origin, then every destination
+from each of those airports, on each day. For round trips, return flights are looked up for the 40 cheapest
+destinations. Limits: up to 5 origin airports and 15 origin × day combinations.
+
 Ryanair's public fare API returns only the **cheapest flight per route per day**, so a connection that would
 need a more expensive flight on one leg can be missed.
 
@@ -36,6 +42,7 @@ bookmarked, and Back/Forward work. The last 5 searches are remembered in the bro
 | `lib/finder.ts` | Finds direct and one-stop routes for one airport pair and date |
 | `lib/search.ts` | Validates search input, expands flexible dates, builds round trips |
 | `lib/time.ts` | Local time ↔ UTC conversion and date helpers |
+| `lib/anywhere.ts` | "Anywhere" search: cheapest destinations from an airport |
 | `lib/calendar.ts` | Cheapest price per day for a month (the price calendar) |
 | `lib/events.ts` | Messages streamed from the search API to the page |
 | `lib/airportGroups.ts` | City / region / country groupings for the airport picker |

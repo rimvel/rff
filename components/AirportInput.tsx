@@ -2,6 +2,7 @@
 
 import { forwardRef, useMemo, useState } from 'react';
 import { AirportGroup, AirportIndex, searchAirports } from '@/lib/airportGroups';
+import { ANYWHERE } from '@/lib/searchUrl';
 import { Airport } from '@/lib/types';
 
 const getFlagEmoji = (countryCode: string) =>
@@ -17,15 +18,24 @@ interface AirportInputProps {
     onTextChange: (text: string) => void;
     /** Called with comma-separated airport codes ('' when cleared) */
     onSelect: (codes: string) => void;
+    /** Offer "Anywhere" (cheapest destinations) as a choice */
+    allowAnywhere?: boolean;
 }
 
 const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function AirportInput(
-    { id, label, index, text, onTextChange, onSelect },
+    { id, label, index, text, onTextChange, onSelect, allowAnywhere = false },
     ref,
 ) {
     const [open, setOpen] = useState(false);
     const matches = useMemo(() => searchAirports(index, text), [index, text]);
-    const hasMatches = matches.regions.length + matches.cities.length + matches.countries.length + matches.airports.length > 0;
+    const typed = text.trim().toLowerCase();
+    const showAnywhere = allowAnywhere && (typed === '' || 'anywhere'.startsWith(typed));
+    const hasMatches = showAnywhere || matches.regions.length + matches.cities.length + matches.countries.length + matches.airports.length > 0;
+
+    const selectAnywhere = () => {
+        onSelect(ANYWHERE);
+        setOpen(false);
+    };
 
     const selectGroup = (group: AirportGroup) => {
         onSelect(group.airportCodes.join(','));
@@ -44,6 +54,10 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
         }
         if (e.key !== 'Enter') return;
         e.preventDefault();
+        if (showAnywhere && typed.length >= 3) {
+            selectAnywhere();
+            return;
+        }
         // Prefer a city, then a region, then a country, then a single airport
         const group = matches.cities[0] ?? matches.regions[0] ?? matches.countries[0];
         if (group) selectGroup(group);
@@ -104,6 +118,19 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
                 )}
                 {open && hasMatches && (
                     <div className="autocomplete-dropdown">
+                        {showAnywhere && (
+                            <div
+                                className="autocomplete-item autocomplete-city"
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={selectAnywhere}
+                            >
+                                <span className="flag-icon">🌍</span>
+                                <div className="autocomplete-text">
+                                    <strong>Anywhere</strong>
+                                    <span className="autocomplete-sub">Cheapest places to fly to</span>
+                                </div>
+                            </div>
+                        )}
                         {matches.regions.map(groupItem)}
                         {matches.cities.map(groupItem)}
                         {matches.countries.map(groupItem)}

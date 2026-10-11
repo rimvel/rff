@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
 import { buildAirportIndex, labelFor } from '@/lib/airportGroups';
-import { SearchRequest } from '@/lib/searchUrl';
+import { ANYWHERE, SearchRequest } from '@/lib/searchUrl';
 import { addDays } from '@/lib/time';
 import { DateDirection } from '@/lib/types';
 import AirportInput from './AirportInput';
@@ -198,6 +198,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
                     type="button"
                     className="swap-button"
                     onClick={handleSwap}
+                    disabled={dest === ANYWHERE}
                     title="Swap Origin and Destination"
                 >
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
@@ -214,6 +215,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
                     ref={destInputRef}
                     id="dest"
                     label="To"
+                    allowAnywhere
                     index={index}
                     text={destText}
                     onTextChange={text => {

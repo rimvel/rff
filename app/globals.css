@@ -155,7 +155,12 @@ body {
 
 /* Mobile Location Group Logic moved to bottom for better consolidation */
 
-.swap-button:hover {
+.swap-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.swap-button:hover:not(:disabled) {
   background: rgba(14, 165, 233, 0.1);
   color: var(--primary);
   border-color: var(--primary);
@@ -163,7 +168,7 @@ body {
 }
 
 @media (max-width: 768px) {
-  .swap-button:hover {
+  .swap-button:hover:not(:disabled) {
     transform: translateY(0.8rem) rotate(270deg) !important;
   }
 }
@@ -1409,7 +1414,12 @@ body {
     border-radius: 50%;
   }
 
-  .location-group .swap-button:hover,
+  .location-group .swap-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.swap-button:hover,
   .location-group .swap-button:active {
     transform: translateY(0.7rem) rotate(270deg) !important;
   }

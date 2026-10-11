@@ -1,11 +1,12 @@
 import { getDayFare, getRoutes } from './ryanair';
-import { minutesAtSamePlace, minutesBetween } from './time';
-import { Flight, SearchResult } from './types';
+import { localToUtcMs, minutesAtSamePlace, minutesBetween } from './time';
+import { Flight, RouteResult, SearchResult } from './types';
 
 export type { RouteResult } from './types';
 
 export const MIN_CONNECTION_MINUTES = 120; // 2 hours
 export const MAX_CONNECTION_MINUTES = 720; // 12 hours
+export const RETURN_OPTIONS_PER_OUTBOUND = 5;
 
 /** Real elapsed minutes from the first departure to the last arrival. */
 export function tripDuration(flights: Flight[], timeZones: Map<string, string>): number {
@@ -23,7 +24,7 @@ export function round2(n: number): number {
     return Math.round(n * 100) / 100;
 }
 
-function directResult(flight: Flight, searchDate: string, timeZones: Map<string, string>): SearchResult {
+export function directResult(flight: Flight, searchDate: string, timeZones: Map<string, string>): SearchResult {
     return {
         type: 'direct',
         origin: flight.origin,
@@ -89,4 +90,26 @@ export async function findCheapestRoutes(
         findOneStop(origin, dest, [date], timeZones),
     ]);
     return [...direct, ...oneStop].sort((a, b) => a.totalPrice - b.totalPrice);
+}
+
+/**
+ * Pair each outbound option with the cheapest return options that depart after it lands.
+ * Outbound options with no possible return are dropped.
+ */
+export function combineRoundTrips(outbound: SearchResult[], returns: RouteResult[]): SearchResult[] {
+    const sortedReturns = [...returns].sort((a, b) => a.totalPrice - b.totalPrice);
+
+    return outbound.flatMap(out => {
+        // Arrival and return departure are both local to the destination airport, so they compare directly
+        const landed = localToUtcMs(out.flights[out.flights.length - 1].arrivalDate);
+        return sortedReturns
+            .filter(ret => localToUtcMs(ret.flights[0].departureDate) > landed)
+            .slice(0, RETURN_OPTIONS_PER_OUTBOUND)
+            .map(ret => ({
+                ...out,
+                isRoundTrip: true,
+                returnFlights: [ret],
+                totalPrice: round2(out.totalPrice + ret.totalPrice),
+            }));
+    });
 }
