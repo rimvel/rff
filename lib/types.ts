@@ -33,7 +33,7 @@ export interface Flight {
     departureDate: string; // local time at origin, no offset (e.g. "2026-10-15T12:25:00")
     arrivalDate: string; // local time at destination, no offset
     price: Price;
-    flightNumber: string;
+    flightNumber?: string; // not known for every fare
 }
 
 export interface RouteResult {

@@ -1,6 +1,7 @@
 // Converts searches and result-view settings to and from the page address,
 // so a search can be shared, bookmarked and navigated with Back/Forward.
 
+import { addDays } from './time';
 import { DateDirection } from './types';
 
 export interface SearchRequest {
@@ -113,4 +114,11 @@ export function toApiUrl(req: SearchRequest): string {
 /** Identifies a search, ignoring how its results are sorted or filtered. */
 export function searchKey(req: SearchRequest | null): string {
     return req ? toPageParams(req).toString() : '';
+}
+
+/** The same search on another departure date; a round trip keeps its length. */
+export function moveTrip(req: SearchRequest, date: string): SearchRequest {
+    if (!req.returnDate) return { ...req, date };
+    const tripDays = Math.round((Date.parse(req.returnDate) - Date.parse(req.date)) / 86_400_000);
+    return { ...req, date, returnDate: addDays(date, tripDays) };
 }

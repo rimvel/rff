@@ -84,6 +84,61 @@ export function getRoutes(airportCode: string): Promise<string[]> {
 
 // --- Fares (cached 15 min; prices change, but not by the second) ---
 
+const FARE_TTL = 15 * 60 * 1000;
+
+interface MonthResponse {
+    outbound?: {
+        fares?: {
+            day: string;
+            departureDate: string | null;
+            arrivalDate: string | null;
+            price: { value: number; currencyCode: string } | null;
+            unavailable: boolean;
+            soldOut: boolean;
+        }[];
+    };
+}
+
+const monthCache = new TtlCache<Map<string, Flight>>(FARE_TTL);
+
+/**
+ * Cheapest flight on each day of a month (`month` is "YYYY-MM"), in one request.
+ * These fares have no flight number; see getFlightNumber().
+ */
+export function getMonthFares(origin: string, dest: string, month: string): Promise<Map<string, Flight>> {
+    if (!isAirportCode(origin) || !isAirportCode(dest) || !/^\d{4}-\d{2}$/.test(month)) return Promise.resolve(new Map());
+    return monthCache.get(`${origin}-${dest}-${month}`, async () => {
+        const url = `${BASE_URL}/oneWayFares/${origin}/${dest}/cheapestPerDay?outboundMonthOfDate=${month}-01&currency=EUR`;
+        const data = (await fetchJson(url)) as MonthResponse;
+        const days = new Map<string, Flight>();
+        for (const f of data.outbound?.fares ?? []) {
+            if (f.unavailable || f.soldOut || !f.price || !f.departureDate || !f.arrivalDate) continue;
+            days.set(f.day, {
+                origin,
+                destination: dest,
+                departureDate: f.departureDate,
+                arrivalDate: f.arrivalDate,
+                price: { value: f.price.value, currencyCode: f.price.currencyCode },
+            });
+        }
+        return days;
+    }).catch(e => {
+        console.error(`Error fetching month fares ${origin}->${dest} ${month}`, e);
+        return new Map();
+    });
+}
+
+/** Cheapest flight on a day ("YYYY-MM-DD"), from the cached month. */
+export async function getDayFare(origin: string, dest: string, date: string): Promise<Flight | null> {
+    return (await getMonthFares(origin, dest, date.slice(0, 7))).get(date) ?? null;
+}
+
+/** Flight number of a flight found via getMonthFares (looked up from that day's fare). */
+export async function getFlightNumber(flight: Flight): Promise<string | undefined> {
+    const day = await getOneWayFares(flight.origin, flight.destination, flight.departureDate.slice(0, 10));
+    return day && day.departureDate === flight.departureDate ? day.flightNumber : undefined;
+}
+
 interface FareResponse {
     fares?: {
         outbound: {
@@ -95,7 +150,7 @@ interface FareResponse {
     }[];
 }
 
-const fareCache = new TtlCache<Flight | null>(15 * 60 * 1000);
+const fareCache = new TtlCache<Flight | null>(FARE_TTL);
 
 /**
  * Cheapest one-way fare for a route on a given day.
