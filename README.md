@@ -1,10 +1,12 @@
-# Ryanair Flight Finder — beyond direct flights
+# RFF — cheap flights, beyond direct
 
 Finds the cheapest Ryanair connections between two places, including **self-transfer trips with one stop**
 that Ryanair's own site won't offer. Search by airport, city, region (e.g. "Spain South") or whole country,
 with optional flexible dates and round trips.
 
 Live at Azure Web App `rffapp`.
+
+> Unofficial: not affiliated with or endorsed by Ryanair DAC. Fares come from Ryanair's public website.
 
 ## How it works
 
@@ -71,6 +73,12 @@ npm test             # unit tests
 npm run lint
 npm run typecheck
 ```
+
+### Link previews
+
+Shared links show a title, description and image (Open Graph / Twitter cards). A shared search gets its own
+title, e.g. "Vilnius → Barcelona · 20 Nov | RFF". Preview links use `https://rffapp.azurewebsites.net`;
+set the `SITE_URL` environment variable if the site moves to another address.
 
 ## Deployment
 

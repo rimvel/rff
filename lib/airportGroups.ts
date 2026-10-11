@@ -116,5 +116,11 @@ export function shortLabelFor(codes: string, index: AirportIndex): string {
         return airport ? (airport.macCity ?? airport.city).name : list[0];
     }
     const label = labelFor(codes, index);
-    return label.includes(' - All') ? label.split(' - All')[0] : `${list.length} airports`;
+    if (label.includes(' - All')) return label.split(' - All')[0];
+    // A few airports that aren't a known group: name their cities, e.g. "Vilnius, Kaunas"
+    const cities = [...new Set(list.map(code => {
+        const airport = index.airports.find(a => a.code === code);
+        return airport ? (airport.macCity ?? airport.city).name : code;
+    }))];
+    return cities.length <= 3 ? cities.join(', ') : `${list.length} airports`;
 }

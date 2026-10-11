@@ -39,7 +39,7 @@
 }
 
 body {
-  background: var(--background);
+  background: transparent; /* the purple gradient behind .app-container shows through */
   color: var(--foreground);
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.6;
@@ -47,15 +47,30 @@ body {
 }
 
 /* App Layout */
+
+/* Purple behind everything, so scrolling past the ends ("bounce") never shows a light background */
+html {
+  background-color: #4b3487;
+}
+
 .app-container {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding: 1.5rem 1rem;
+  position: relative;
+}
+
+/* The gradient is pinned to the screen instead of stretched over the whole (possibly very long) page,
+   which browsers can fail to paint while scrolling */
+.app-container::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background:
     linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.2)),
     linear-gradient(135deg, #5161ce 0%, #5b3687 100%);
-  padding: 1.5rem 1rem;
-  position: relative;
 }
 
 .app-header {
@@ -127,6 +142,13 @@ body {
   font-size: 0.875rem;
 }
 
+.app-footer .disclaimer {
+  max-width: 40rem;
+  margin: 0 auto 0.5rem;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
 /* Search Form */
 .search-form {
   background: var(--card-bg);
@@ -146,7 +168,8 @@ body {
 .location-group {
   display: flex;
   gap: 1rem;
-  align-items: flex-end;
+  /* Top-aligned, so an error message under one field doesn't shift the others */
+  align-items: flex-start;
 }
 
 .location-group .form-group {
@@ -200,7 +223,8 @@ body {
 
 
 .swap-button {
-  align-self: flex-end;
+  align-self: flex-start;
+  margin-top: 2.2rem; /* centred on the inputs, below their labels */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1414,13 +1438,8 @@ body {
     border-radius: 50%;
   }
 
-  .location-group .swap-button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.swap-button:hover,
-  .location-group .swap-button:active {
+  .location-group .swap-button:hover:not(:disabled),
+  .location-group .swap-button:active:not(:disabled) {
     transform: translateY(0.7rem) rotate(270deg) !important;
   }
 
@@ -1878,4 +1897,51 @@ body {
   .cal-nav {
     gap: 0.375rem;
   }
+}
+
+/* Form validation */
+.form-group.has-error input,
+.form-group.has-error input:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.field-error {
+  margin-top: 0.375rem;
+  color: var(--danger);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.form-error {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: -0.5rem;
+}
+
+[data-theme="dark"] .field-error,
+[data-theme="dark"] .form-error {
+  color: #f87171;
+}
+
+/* Results that no longer match the form */
+.stale-notice {
+  max-width: 1000px;
+  margin: 0 auto 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e293b;
+  font-size: 0.9375rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.stale-results {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+  transition: opacity 0.2s ease;
 }

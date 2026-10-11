@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
 import { buildAirportIndex, labelFor } from '@/lib/airportGroups';
-import { ANYWHERE, SearchRequest } from '@/lib/searchUrl';
+import { ANYWHERE, SearchRequest, searchKey } from '@/lib/searchUrl';
 import { addDays } from '@/lib/time';
 import { DateDirection } from '@/lib/types';
 import AirportInput from './AirportInput';
@@ -15,7 +15,11 @@ interface SearchFormProps {
     initial: SearchRequest | null;
     /** Today's date in the user's time zone ('' until known) */
     today: string;
+    /** Told what search the form currently describes ('' if incomplete), so old results can be marked */
+    onDraftChange?: (key: string) => void;
 }
+
+type Field = 'origin' | 'dest' | 'date' | 'returnDate';
 
 const DEFAULT_TRIP_DAYS = 7;
 const RANGE_OPTIONS = [1, 2, 3, 5, 7];
@@ -63,16 +67,17 @@ function FlexSelector({ label, active, onToggle, direction, onDirection, range, 
     );
 }
 
-function DateField({ id, label, value, min, onChange, flexLabel }: {
+function DateField({ id, label, value, min, onChange, flexLabel, error }: {
     id: string;
     label: string;
     value: string;
     min: string;
     onChange: (date: string) => void;
     flexLabel?: string;
+    error?: string;
 }) {
     return (
-        <div className="form-group">
+        <div className={`form-group ${error ? 'has-error' : ''}`}>
             <div className="date-with-flex">
                 <label htmlFor={id}>{label}</label>
                 {flexLabel && <span className="flex-indicator">{flexLabel}</span>}
@@ -84,7 +89,8 @@ function DateField({ id, label, value, min, onChange, flexLabel }: {
                     value={value}
                     onChange={e => e.target.value && onChange(e.target.value)}
                     min={min}
-                    required
+                    aria-invalid={!!error}
+                    aria-describedby={error ? `${id}-error` : undefined}
                 />
                 <div className="date-adjusters-overlay">
                     <button
@@ -108,11 +114,12 @@ function DateField({ id, label, value, min, onChange, flexLabel }: {
                     </button>
                 </div>
             </div>
+            {error && <p className="field-error" id={`${id}-error`}>{error}</p>}
         </div>
     );
 }
 
-export default function SearchForm({ onSearch, isLoading, initial, today }: SearchFormProps) {
+export default function SearchForm({ onSearch, isLoading, initial, today, onDraftChange }: SearchFormProps) {
     const { airports } = useAirports();
     const index = useMemo(() => buildAirportIndex(airports), [airports]);
 
@@ -147,15 +154,22 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!origin || !dest || !date) return;
-        if (roundTrip && !returnDate) {
-            alert('Please select a return date');
-            return;
-        }
-        const useFlexReturn = roundTrip && flexibleReturn;
-        onSearch({
+    // Problems with what's entered; shown only after the first attempt to search, and updated as they're fixed
+    const [attempted, setAttempted] = useState(false);
+    const problems: Partial<Record<Field, string>> = {};
+    if (!origin) problems.origin = originText.trim() ? 'Pick an airport from the list.' : 'Choose where you\'re flying from.';
+    if (!dest) problems.dest = destText.trim() ? 'Pick an airport from the list.' : 'Choose where to, or 🌍 Anywhere.';
+    else if (dest === origin) problems.dest = 'Choose a different destination.';
+    if (!date) problems.date = 'Choose a date.';
+    else if (today && date < today) problems.date = 'Choose today or a later date.';
+    if (roundTrip && !returnDate) problems.returnDate = 'Choose a return date.';
+    else if (roundTrip && returnDate < date) problems.returnDate = 'The return can\'t be before the departure.';
+    const errors = attempted ? problems : {};
+    const isValid = Object.keys(problems).length === 0;
+
+    const useFlexReturn = roundTrip && flexibleReturn;
+    const request: SearchRequest | null = isValid
+        ? {
             origin,
             dest,
             date,
@@ -164,7 +178,23 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
             departureDateDirection: flexibleDeparture ? departureDateDirection : undefined,
             returnDateRange: useFlexReturn ? returnDateRange : undefined,
             returnDateDirection: useFlexReturn ? returnDateDirection : undefined,
-        });
+        }
+        : null;
+
+    const draftKey = searchKey(request);
+    useEffect(() => {
+        onDraftChange?.(draftKey);
+    }, [draftKey, onDraftChange]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!request) {
+            setAttempted(true);
+            const firstInvalid = (['origin', 'dest', 'date', 'returnDate'] as Field[]).find(f => problems[f]);
+            if (firstInvalid) document.getElementById(firstInvalid)?.focus();
+            return;
+        }
+        onSearch(request);
     };
 
     const handleSwap = () => {
@@ -175,11 +205,12 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
     };
 
     return (
-        <form onSubmit={handleSubmit} className="search-form">
+        <form onSubmit={handleSubmit} className="search-form" noValidate>
             <div className="location-group">
                 <AirportInput
                     id="origin"
                     label="From"
+                    error={errors.origin}
                     index={index}
                     text={originText}
                     onTextChange={text => {
@@ -216,6 +247,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
                     id="dest"
                     label="To"
                     allowAnywhere
+                    error={errors.dest}
                     index={index}
                     text={destText}
                     onTextChange={text => {
@@ -236,6 +268,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
                     value={date}
                     min={today}
                     onChange={changeDepartureDate}
+                    error={errors.date}
                     flexLabel={flexibleDeparture ? `${directionSymbol(departureDateDirection)}${departureDateRange}d` : undefined}
                 />
 
@@ -246,6 +279,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
                         value={returnDate}
                         min={date}
                         onChange={setReturnDate}
+                        error={errors.returnDate}
                         flexLabel={flexibleReturn ? `${directionSymbol(returnDateDirection)}${returnDateRange}d` : undefined}
                     />
                 )}
@@ -296,7 +330,11 @@ export default function SearchForm({ onSearch, isLoading, initial, today }: Sear
                 </div>
             </div>
 
-            <button type="submit" disabled={isLoading || !origin || !dest || !date} className="search-button-compact">
+            {attempted && !isValid && (
+                <p className="form-error" role="alert">Please fix the highlighted fields.</p>
+            )}
+
+            <button type="submit" disabled={isLoading} className="search-button-compact">
                 {isLoading ? 'Searching...' : 'Search'}
             </button>
         </form>
