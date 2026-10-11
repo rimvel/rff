@@ -13,8 +13,47 @@ const HEADERS = {
 const HOUR = 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 10_000;
 
-// Max simultaneous requests to Ryanair from this server, across all searches
-const limit = createLimiter(8);
+// Requests that come too fast get this server blocked by Ryanair for a while, so for all searches
+// together: at most 6 at once, started at least 50 ms apart (about 20 per second)
+const limit = createLimiter(6, 50);
+
+// --- Backing off when Ryanair refuses requests ---
+
+const PAUSE_MS = 60_000; // after being refused, stop asking for a minute
+const WINDOW_MS = 30_000;
+let pausedUntil = 0;
+const recent: { at: number; ok: boolean }[] = [];
+
+/** Thrown instead of calling Ryanair while requests are paused. */
+export class RyanairUnavailableError extends Error {}
+
+function recordOutcome(ok: boolean) {
+    const now = Date.now();
+    recent.push({ at: now, ok });
+    while (recent.length > 0 && recent[0].at < now - WINDOW_MS) recent.shift();
+    const failures = recent.filter(r => !r.ok).length;
+    // Many failures in a row look like a block: pause rather than keep hammering
+    if (!ok && failures >= 8 && failures >= recent.length / 2) pause('many failed requests');
+}
+
+function pause(reason: string) {
+    if (Date.now() >= pausedUntil) console.warn(`Pausing requests to Ryanair for ${PAUSE_MS / 1000}s: ${reason}`);
+    pausedUntil = Date.now() + PAUSE_MS;
+}
+
+/** True when Ryanair is refusing or failing most requests, so empty results probably mean "couldn't ask". */
+export function isRyanairUnavailable(): boolean {
+    const now = Date.now();
+    if (now < pausedUntil) return true;
+    const window = recent.filter(r => r.at >= now - WINDOW_MS);
+    const failures = window.filter(r => !r.ok).length;
+    return failures >= 3 && failures >= window.length / 2;
+}
+
+/** Log a failed lookup, except the expected ones while paused. */
+function logFailure(message: string, e: unknown) {
+    if (!(e instanceof RyanairUnavailableError)) console.error(message, e);
+}
 
 const AIRPORT_CODE = /^[A-Z]{3}$/;
 
@@ -23,10 +62,36 @@ export function isAirportCode(code: string): boolean {
 }
 
 async function fetchJson(url: string): Promise<unknown> {
+    const checkPaused = () => {
+        if (Date.now() < pausedUntil) throw new RyanairUnavailableError('Requests to Ryanair are paused');
+    };
+    checkPaused();
     return limit(async () => {
-        const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-        if (!res.ok) throw new Error(`Ryanair API ${res.status} for ${url}`);
-        return res.json();
+        checkPaused(); // it may have been paused while this request was waiting its turn
+        let res: Response;
+        try {
+            res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+        } catch (e) {
+            recordOutcome(false);
+            throw e;
+        }
+        if (res.status === 403 || res.status === 429) {
+            recordOutcome(false);
+            pause(`Ryanair answered ${res.status}`);
+            throw new Error(`Ryanair API ${res.status} for ${url}`);
+        }
+        if (!res.ok) {
+            recordOutcome(res.status < 500); // e.g. 404 for an unknown route is a normal answer
+            throw new Error(`Ryanair API ${res.status} for ${url}`);
+        }
+        try {
+            const data = await res.json();
+            recordOutcome(true);
+            return data;
+        } catch (e) {
+            recordOutcome(false); // e.g. an HTML "are you a robot?" page instead of data
+            throw e;
+        }
     });
 }
 
@@ -77,7 +142,7 @@ export function getRoutes(airportCode: string): Promise<string[]> {
         const data = (await fetchJson(`${LOCATE_URL}/searchWidget/routes/en/airport/${airportCode}`)) as { arrivalAirport: { code: string } }[];
         return data.map(r => r.arrivalAirport.code);
     }).catch(e => {
-        console.error(`Error fetching routes for ${airportCode}`, e);
+        logFailure(`Error fetching routes for ${airportCode}`, e);
         return [];
     });
 }
@@ -123,7 +188,7 @@ export function getMonthFares(origin: string, dest: string, month: string): Prom
         }
         return days;
     }).catch(e => {
-        console.error(`Error fetching month fares ${origin}->${dest} ${month}`, e);
+        logFailure(`Error fetching month fares ${origin}->${dest} ${month}`, e);
         return new Map();
     });
 }
@@ -178,7 +243,7 @@ export function getOneWayFares(origin: string, dest: string, date: string): Prom
             flightNumber: fare.flightNumber,
         };
     }).catch(e => {
-        console.error(`Error fetching fares ${origin}->${dest}`, e);
+        logFailure(`Error fetching fares ${origin}->${dest}`, e);
         return null;
     });
 }
@@ -224,7 +289,7 @@ export function getAnywhere(origin: string, date: string): Promise<Flight[]> {
             return flight;
         });
     }).catch(e => {
-        console.error(`Error fetching destinations from ${origin} on ${date}`, e);
+        logFailure(`Error fetching destinations from ${origin} on ${date}`, e);
         return [];
     });
 }

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SearchEvent } from '@/lib/events';
+import { clientKey, createRateLimit, tooManyRequests } from '@/lib/rateLimit';
 import { parseSearchParams, streamSearch } from '@/lib/search';
+
+// Per visitor: plenty for normal use, but stops one person (or bot) from getting the server blocked by Ryanair
+const searchesPerVisitor = createRateLimit(30, 60_000);
+const anywherePerVisitor = createRateLimit(5, 10 * 60_000); // "Anywhere" needs many more requests
 
 // Streams results as newline-separated JSON messages (see lib/events.ts), so the page can show
 // direct flights while connections are still being searched.
@@ -8,6 +13,21 @@ export async function GET(request: NextRequest) {
     const parsed = parseSearchParams(request.nextUrl.searchParams);
     if (!parsed.ok) {
         return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const visitor = clientKey(request.headers);
+    const allowed = searchesPerVisitor(visitor);
+    if (!allowed.ok) {
+        return tooManyRequests("You're searching very quickly. Please wait a minute and try again.", allowed.retryAfterSeconds);
+    }
+    if (parsed.params.anywhere) {
+        const allowedAnywhere = anywherePerVisitor(visitor);
+        if (!allowedAnywhere.ok) {
+            const minutes = Math.ceil(allowedAnywhere.retryAfterSeconds / 60);
+            return tooManyRequests(
+                `You've done several "Anywhere" searches in a short time. Please try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`,
+                allowedAnywhere.retryAfterSeconds,
+            );
+        }
     }
 
     const encoder = new TextEncoder();

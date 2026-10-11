@@ -2,7 +2,7 @@ import { ANYWHERE, MAX_ANYWHERE_ORIGIN_DAYS, MAX_ANYWHERE_ORIGINS, searchAnywher
 import { merge } from './cache';
 import { applyFlightNumbers, flightKey, SearchEvent } from './events';
 import { combineRoundTrips, findDirect, findOneStop } from './finder';
-import { getFlightNumber, getTimeZones, isAirportCode } from './ryanair';
+import { getFlightNumber, getTimeZones, isAirportCode, isRyanairUnavailable } from './ryanair';
 import { addDays, expandDates } from './time';
 import { DateDirection, Flight, SearchResult } from './types';
 
@@ -14,6 +14,9 @@ export const MAX_DATE_RANGE_DAYS = 7;
 export const MAX_AIRPORTS_PER_SIDE = 40;
 export const MAX_SEARCH_COMBINATIONS = 300; // airport pairs x departure dates
 export const MAX_RESULTS = 200; // the page sorts and filters these itself
+
+export const RYANAIR_UNAVAILABLE =
+    "Ryanair isn't answering right now, so prices can't be loaded. Please try again in a few minutes.";
 
 export interface SearchParams {
     origins: string[];
@@ -178,12 +181,21 @@ async function lookUpFlightNumbers(results: SearchResult[]): Promise<Record<stri
  * Afterwards, flight numbers are looked up for the cheapest results.
  */
 export async function* streamSearch(p: SearchParams): AsyncGenerator<SearchEvent> {
+    if (isRyanairUnavailable()) {
+        yield { type: 'error', error: RYANAIR_UNAVAILABLE };
+        return;
+    }
     const timeZones = await getTimeZones();
     const finalResults = new Map<string, SearchResult[]>();
 
     for await (const event of p.anywhere ? searchAnywhere(p, timeZones) : searchPairs(p, timeZones)) {
         if (event.type === 'results' && event.final) finalResults.set(event.pair, event.results);
         yield event;
+    }
+    // Nothing found because Ryanair didn't answer is not the same as "no flights"
+    if ([...finalResults.values()].every(r => r.length === 0) && isRyanairUnavailable()) {
+        yield { type: 'error', error: RYANAIR_UNAVAILABLE };
+        return;
     }
     yield { type: 'complete' };
 
