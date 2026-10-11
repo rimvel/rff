@@ -24,12 +24,17 @@ export function round2(n: number): number {
     return Math.round(n * 100) / 100;
 }
 
+/** Copy of the flight with its flight time filled in. */
+function timed(flight: Flight, timeZones: Map<string, string>): Flight {
+    return { ...flight, minutes: tripDuration([flight], timeZones) };
+}
+
 export function directResult(flight: Flight, searchDate: string, timeZones: Map<string, string>): SearchResult {
     return {
         type: 'direct',
         origin: flight.origin,
         destination: flight.destination,
-        flights: [flight],
+        flights: [timed(flight, timeZones)],
         totalPrice: flight.price.value,
         currency: flight.price.currencyCode,
         duration: tripDuration([flight], timeZones),
@@ -46,7 +51,7 @@ export function layoverResult(first: Flight, second: Flight, searchDate: string,
         origin: first.origin,
         destination: second.destination,
         via: first.destination,
-        flights: [first, second],
+        flights: [timed(first, timeZones), timed(second, timeZones)],
         totalPrice: round2(first.price.value + second.price.value),
         currency: first.price.currencyCode,
         duration: tripDuration([first, second], timeZones),

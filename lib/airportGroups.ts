@@ -124,3 +124,22 @@ export function shortLabelFor(codes: string, index: AirportIndex): string {
     }))];
     return cities.length <= 3 ? cities.join(', ') : `${list.length} airports`;
 }
+
+function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+    const rad = Math.PI / 180;
+    const dLat = (b.latitude - a.latitude) * rad;
+    const dLon = (b.longitude - a.longitude) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
+    return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+/** Other airports within `maxKm` of any of the given ones, nearest first. */
+export function nearbyAirports(codes: string[], index: AirportIndex, maxKm = 250): Airport[] {
+    const selected = index.airports.filter(a => codes.includes(a.code) && a.coordinates);
+    return index.airports
+        .filter(a => !codes.includes(a.code) && a.coordinates)
+        .map(a => ({ a, km: Math.min(...selected.map(s => distanceKm(s.coordinates!, a.coordinates!))) }))
+        .filter(x => x.km <= maxKm)
+        .sort((x, y) => x.km - y.km)
+        .map(x => x.a);
+}

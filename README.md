@@ -31,6 +31,12 @@ need a more expensive flight on one leg can be missed.
 
 Times are shown in local time at each airport. Durations account for time zones.
 
+Each result shows the total price, then a timeline per direction (flights, layover length) with layover
+badges: **Tight** (under 2 h 30 min, risky with separate tickets), **Long** (over 8 h), **Overnight**, and
+**Self-transfer** (separate tickets: bags and check-in again). A summary line gives the cheapest price, the
+fastest trip and the cheapest direct option. When nothing is found, the page suggests flexible dates, nearby
+airports (within 250 km), a one-way search or "Anywhere".
+
 Results can be sorted (cheapest, fastest, earliest) and filtered (direct only, maximum layover, maximum price)
 in the browser. The search, sorting and filters are kept in the page address, so a link such as
 `/?from=VNO&to=BCN,GRO,REU&date=2026-11-13&return=2026-11-20&returnFlex=2&sort=fastest` can be shared or
@@ -49,7 +55,10 @@ bookmarked, and Back/Forward work. The last 5 searches are remembered in the bro
 | `lib/events.ts` | Messages streamed from the search API to the page |
 | `lib/airportGroups.ts` | City / region / country groupings for the airport picker |
 | `lib/searchUrl.ts` | Search and result-view settings ↔ page address |
-| `lib/resultFilters.ts` | Sorting and filtering of results |
+| `lib/resultFilters.ts` | Sorting, filtering and the summary line |
+| `lib/layoverRisk.ts` | Layover badges (tight, long, overnight) |
+| `lib/suggestions.ts` | Suggestions when a search finds nothing |
+| `lib/format.ts` | Durations, times, days and prices for display |
 | `lib/recentSearches.ts` | Recent searches stored in the browser |
 | `app/api/search` | Streams results as newline-separated JSON (see `lib/events.ts`). `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
 | `app/api/calendar` | `GET /api/calendar?origin=VNO&dest=BCN&month=2026-11` → cheapest price per day |

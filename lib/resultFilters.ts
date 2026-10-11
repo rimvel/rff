@@ -51,3 +51,19 @@ export function applyView(results: SearchResult[], view: ResultView): SearchResu
         )
         .sort(COMPARATORS[view.sort]);
 }
+
+export interface ResultSummary {
+    cheapest: number;
+    fastestMinutes: number;
+    cheapestDirect?: number; // only when the cheapest overall isn't direct
+}
+
+/** Headline numbers for a list of results: cheapest price, shortest travel time, cheapest direct. */
+export function summarize(results: SearchResult[]): ResultSummary | null {
+    if (results.length === 0) return null;
+    const cheapest = Math.min(...results.map(r => r.totalPrice));
+    const fastestMinutes = Math.min(...results.map(travelMinutes));
+    const direct = results.filter(isAllDirect).map(r => r.totalPrice);
+    const cheapestDirect = direct.length > 0 ? Math.min(...direct) : undefined;
+    return { cheapest, fastestMinutes, cheapestDirect: cheapestDirect !== cheapest ? cheapestDirect : undefined };
+}

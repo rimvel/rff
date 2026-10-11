@@ -183,11 +183,11 @@ export default function HomePage() {
         {!isLoading && request && current && !current.error && !(isStale && results.length === 0) && (
           <FlightResults
             key={current.key}
+            request={request}
             results={results}
-            isRoundTrip={!!request.returnDate}
-            anywhere={anywhere}
             view={view}
             onViewChange={handleViewChange}
+            onSearch={req => setQueryString(toPageParams(req))}
           />
         )}
         </div>
