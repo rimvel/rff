@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
-import { applyView } from '@/lib/resultFilters';
+import { applyView, onePerDestination } from '@/lib/resultFilters';
 import { ResultView } from '@/lib/searchUrl';
 import { localToUtcMs, minutesAtSamePlace } from '@/lib/time';
 import { Flight, RouteResult, SearchResult } from '@/lib/types';
@@ -11,6 +11,8 @@ import ResultsToolbar, { hasFilters } from './ResultsToolbar';
 interface FlightResultsProps {
     results: SearchResult[];
     isRoundTrip?: boolean;
+    /** "Anywhere" search: show one result per destination */
+    anywhere?: boolean;
     view: ResultView;
     onViewChange: (view: ResultView) => void;
 }
@@ -236,13 +238,18 @@ function ResultCard({ result, cityName }: { result: SearchResult; cityName: (cod
     );
 }
 
-export default function FlightResults({ results, isRoundTrip, view, onViewChange }: FlightResultsProps) {
+export default function FlightResults({ results, isRoundTrip, anywhere, view, onViewChange }: FlightResultsProps) {
     const { airports } = useAirports();
     const [shown, setShown] = useState(PAGE_SIZE);
 
     const airportNames = useMemo(() => new Map(airports.map(a => [a.code, a.name])), [airports]);
     const cityName = (code: string) => airportNames.get(code) || code;
-    const visible = useMemo(() => applyView(results, view), [results, view]);
+    const visible = useMemo(() => {
+        const shown = applyView(results, view);
+        return anywhere ? onePerDestination(shown) : shown;
+    }, [results, view, anywhere]);
+    const total = anywhere ? new Set(results.map(r => r.destination)).size : results.length;
+    const noun = (n: number) => (anywhere ? (n === 1 ? 'destination' : 'destinations') : n === 1 ? 'option' : 'options');
 
     if (results.length === 0) {
         return (
@@ -256,9 +263,9 @@ export default function FlightResults({ results, isRoundTrip, view, onViewChange
     return (
         <div className="results-container">
             <h2 className="results-title">
-                {visible.length === results.length
-                    ? `Found ${results.length} ${results.length === 1 ? 'option' : 'options'}`
-                    : `Showing ${visible.length} of ${results.length} options`}
+                {visible.length === total
+                    ? `Found ${total} ${noun(total)}`
+                    : `Showing ${visible.length} of ${total} ${noun(total)}`}
             </h2>
 
             <ResultsToolbar view={view} onChange={onViewChange} />

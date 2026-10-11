@@ -36,6 +36,12 @@ const COMPARATORS: Record<ResultView['sort'], (a: SearchResult, b: SearchResult)
     earliest: (a, b) => a.flights[0].departureDate.localeCompare(b.flights[0].departureDate) || byPrice(a, b),
 };
 
+/** Keep only the first (best, in the current order) result for each destination. */
+export function onePerDestination(results: SearchResult[]): SearchResult[] {
+    const seen = new Set<string>();
+    return results.filter(r => !seen.has(r.destination) && !!seen.add(r.destination));
+}
+
 export function applyView(results: SearchResult[], view: ResultView): SearchResult[] {
     return results
         .filter(r =>

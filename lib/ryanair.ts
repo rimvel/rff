@@ -182,3 +182,49 @@ export function getOneWayFares(origin: string, dest: string, date: string): Prom
         return null;
     });
 }
+
+// --- "Anywhere": every destination from an airport on one day ---
+
+interface AnywhereResponse {
+    fares?: {
+        outbound: {
+            arrivalAirport: { iataCode: string };
+            departureDate: string;
+            arrivalDate: string;
+            price: { value: number; currencyCode: string };
+            flightNumber: string;
+        };
+    }[];
+}
+
+const anywhereCache = new TtlCache<Flight[]>(FARE_TTL);
+
+/** Cheapest flight to every destination from `origin` on `date`, in one request. */
+export function getAnywhere(origin: string, date: string): Promise<Flight[]> {
+    if (!isAirportCode(origin)) return Promise.resolve([]);
+    const params = new URLSearchParams({
+        departureAirportIataCode: origin,
+        outboundDepartureDateFrom: date,
+        outboundDepartureDateTo: date,
+        currency: 'EUR',
+    });
+    return anywhereCache.get(`${origin}-${date}`, async () => {
+        const data = (await fetchJson(`${BASE_URL}/oneWayFares?${params}`)) as AnywhereResponse;
+        return (data.fares ?? []).map(({ outbound: o }) => {
+            const flight: Flight = {
+                origin,
+                destination: o.arrivalAirport.iataCode,
+                departureDate: o.departureDate,
+                arrivalDate: o.arrivalDate,
+                price: { value: o.price.value, currencyCode: o.price.currencyCode },
+                flightNumber: o.flightNumber,
+            };
+            // The same fare a single-route lookup for that day would return
+            fareCache.set(`${origin}-${flight.destination}-${date}`, flight);
+            return flight;
+        });
+    }).catch(e => {
+        console.error(`Error fetching destinations from ${origin} on ${date}`, e);
+        return [];
+    });
+}

@@ -10,7 +10,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { buildAirportIndex, shortLabelFor } from '@/lib/airportGroups';
 import { applyFlightNumbers, readEvents } from '@/lib/events';
 import { saveRecentSearch } from '@/lib/recentSearches';
-import { moveTrip, readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
+import { ANYWHERE, moveTrip, readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
 import { SearchResult } from '@/lib/types';
 import { useAirports } from '@/lib/useAirports';
 import { setQueryString, useFormVersion, useQueryString, useToday } from '@/lib/useUrl';
@@ -30,6 +30,7 @@ export default function Home() {
   const request = useMemo(() => readSearch(params), [params]);
   const view = useMemo(() => readView(params), [params]);
   const key = searchKey(request);
+  const anywhere = request?.dest === ANYWHERE;
   const today = useToday();
 
   const { airports } = useAirports();
@@ -140,7 +141,7 @@ export default function Home() {
           </div>
         )}
 
-        {request && !current?.error && (
+        {request && !anywhere && !current?.error && (
           <PriceCalendar
             key={`${request.origin}|${request.dest}|${request.date.slice(0, 7)}`}
             request={request}
@@ -165,6 +166,7 @@ export default function Home() {
             key={current.key}
             results={results}
             isRoundTrip={!!request.returnDate}
+            anywhere={anywhere}
             view={view}
             onViewChange={handleViewChange}
           />
