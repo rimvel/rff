@@ -7,7 +7,7 @@ import { DateDirection, RouteResult, SearchResult } from './types';
 export const MAX_DATE_RANGE_DAYS = 7;
 export const MAX_AIRPORTS_PER_SIDE = 40;
 export const MAX_SEARCH_COMBINATIONS = 300; // airport pairs x departure dates
-export const MAX_RESULTS = 50;
+export const MAX_RESULTS = 200; // the page sorts and filters these itself
 export const RETURN_OPTIONS_PER_OUTBOUND = 5;
 
 export interface SearchParams {

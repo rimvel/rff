@@ -19,6 +19,11 @@ need a more expensive flight on one leg can be missed.
 
 Times are shown in local time at each airport. Durations account for time zones.
 
+Results can be sorted (cheapest, fastest, earliest) and filtered (direct only, maximum layover, maximum price)
+in the browser. The search, sorting and filters are kept in the page address, so a link such as
+`/?from=VNO&to=BCN,GRO,REU&date=2026-11-13&return=2026-11-20&returnFlex=2&sort=fastest` can be shared or
+bookmarked, and Back/Forward work. The last 5 searches are remembered in the browser (localStorage).
+
 ## Project layout
 
 | Path | What it does |
@@ -28,6 +33,9 @@ Times are shown in local time at each airport. Durations account for time zones.
 | `lib/search.ts` | Validates search input, expands flexible dates, builds round trips |
 | `lib/time.ts` | Local time ↔ UTC conversion and date helpers |
 | `lib/airportGroups.ts` | City / region / country groupings for the airport picker |
+| `lib/searchUrl.ts` | Search and result-view settings ↔ page address |
+| `lib/resultFilters.ts` | Sorting and filtering of results |
+| `lib/recentSearches.ts` | Recent searches stored in the browser |
 | `app/api/search` | `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
 | `app/api/airports` | List of active Ryanair airports (cached 24h) |
 | `components/` | Search form, airport picker, results |
@@ -36,7 +44,7 @@ Times are shown in local time at each airport. Durations account for time zones.
 ### Limits
 
 To keep one search from sending thousands of requests to Ryanair, a search is limited to ±7 flexible days,
-40 airports per side, and 300 airport-pair × date combinations. Results are capped at the 50 cheapest.
+40 airports per side, and 300 airport-pair × date combinations. Results are capped at the 200 cheapest; the page shows 50 at a time.
 
 ## Development
 

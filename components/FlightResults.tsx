@@ -1,14 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
-import { localToUtcMs } from '@/lib/time';
+import { applyView } from '@/lib/resultFilters';
+import { ResultView } from '@/lib/searchUrl';
+import { localToUtcMs, minutesAtSamePlace } from '@/lib/time';
 import { Flight, RouteResult, SearchResult } from '@/lib/types';
+import ResultsToolbar, { hasFilters } from './ResultsToolbar';
 
 interface FlightResultsProps {
     results: SearchResult[];
     isRoundTrip?: boolean;
+    view: ResultView;
+    onViewChange: (view: ResultView) => void;
 }
+
+const PAGE_SIZE = 50;
 
 function formatDuration(minutes: number): string {
     const hours = Math.floor(minutes / 60);
@@ -31,10 +38,6 @@ function formatDay(date: string): string {
     return new Date(localToUtcMs(date)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
-/** Minutes between two local times at the same airport. */
-function minutesAtAirport(from: string, to: string): number {
-    return (localToUtcMs(to) - localToUtcMs(from)) / 60000;
-}
 
 const localDay = (local: string) => local.slice(0, 10);
 
@@ -74,7 +77,7 @@ function Price({ result, bookingUrl }: { result: SearchResult; bookingUrl: strin
 }
 
 function Layover({ arriving, departing }: { arriving: Flight; departing: Flight }) {
-    const waitMinutes = minutesAtAirport(arriving.arrivalDate, departing.departureDate);
+    const waitMinutes = minutesAtSamePlace(arriving.arrivalDate, departing.departureDate);
     let warning: { text: string; className: string } | null = null;
     if (waitMinutes > 480) warning = { text: '⚠️ Long!', className: 'layover-warning-long' };
     else if (waitMinutes < 90) warning = { text: '⚡ Short!', className: 'layover-warning-short' };
@@ -129,7 +132,7 @@ function FlightSegments({ flights }: { flights: Flight[] }) {
 
 function ReturnLeg({ result, ret, cityName }: { result: SearchResult; ret: RouteResult; cityName: (code: string) => string }) {
     const outboundArrival = result.flights[result.flights.length - 1].arrivalDate;
-    const stayHours = Math.floor(minutesAtAirport(outboundArrival, ret.flights[0].departureDate) / 60);
+    const stayHours = Math.floor(minutesAtSamePlace(outboundArrival, ret.flights[0].departureDate) / 60);
     const stayDays = Math.floor(stayHours / 24);
     const stayText = stayDays > 0 ? `${stayDays}d ${stayHours % 24}h` : `${stayHours}h`;
 
@@ -233,11 +236,13 @@ function ResultCard({ result, cityName }: { result: SearchResult; cityName: (cod
     );
 }
 
-export default function FlightResults({ results, isRoundTrip }: FlightResultsProps) {
+export default function FlightResults({ results, isRoundTrip, view, onViewChange }: FlightResultsProps) {
     const { airports } = useAirports();
+    const [shown, setShown] = useState(PAGE_SIZE);
 
     const airportNames = useMemo(() => new Map(airports.map(a => [a.code, a.name])), [airports]);
     const cityName = (code: string) => airportNames.get(code) || code;
+    const visible = useMemo(() => applyView(results, view), [results, view]);
 
     if (results.length === 0) {
         return (
@@ -250,13 +255,31 @@ export default function FlightResults({ results, isRoundTrip }: FlightResultsPro
 
     return (
         <div className="results-container">
-            <h2 className="results-title">Found {results.length} {results.length === 1 ? 'option' : 'options'}</h2>
+            <h2 className="results-title">
+                {visible.length === results.length
+                    ? `Found ${results.length} ${results.length === 1 ? 'option' : 'options'}`
+                    : `Showing ${visible.length} of ${results.length} options`}
+            </h2>
+
+            <ResultsToolbar view={view} onChange={onViewChange} />
+
+            {visible.length === 0 && hasFilters(view) && (
+                <div className="no-results">
+                    <p>No options match your filters.</p>
+                </div>
+            )}
 
             <div className="results-list">
-                {results.map((result, index) => (
+                {visible.slice(0, shown).map((result, index) => (
                     <ResultCard key={index} result={result} cityName={cityName} />
                 ))}
             </div>
+
+            {visible.length > shown && (
+                <button type="button" className="show-more-btn" onClick={() => setShown(n => n + PAGE_SIZE)}>
+                    Show more ({visible.length - shown} left)
+                </button>
+            )}
         </div>
     );
 }

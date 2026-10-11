@@ -15,8 +15,8 @@ interface AirportInputProps {
     index: AirportIndex;
     text: string;
     onTextChange: (text: string) => void;
-    /** Called with comma-separated airport codes ('' when cleared) and the text to show */
-    onSelect: (codes: string, text: string) => void;
+    /** Called with comma-separated airport codes ('' when cleared) */
+    onSelect: (codes: string) => void;
 }
 
 const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function AirportInput(
@@ -28,12 +28,12 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
     const hasMatches = matches.regions.length + matches.cities.length + matches.countries.length + matches.airports.length > 0;
 
     const selectGroup = (group: AirportGroup) => {
-        onSelect(group.airportCodes.join(','), `${group.name} - All (${group.airportCodes.length})`);
+        onSelect(group.airportCodes.join(','));
         setOpen(false);
     };
 
     const selectAirport = (airport: Airport) => {
-        onSelect(airport.code, `${airport.code} - ${airport.name}`);
+        onSelect(airport.code);
         setOpen(false);
     };
 
@@ -94,7 +94,7 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
                         type="button"
                         className="clear-input-btn"
                         onClick={() => {
-                            onSelect('', '');
+                            onSelect('');
                             if (ref && typeof ref !== 'function') ref.current?.focus();
                         }}
                         title={`Clear ${label}`}

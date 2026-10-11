@@ -1,5 +1,5 @@
 import { getOneWayFares, getRoutes } from './ryanair';
-import { minutesBetween } from './time';
+import { minutesAtSamePlace, minutesBetween } from './time';
 import { Flight, RouteResult } from './types';
 
 export type { RouteResult } from './types';
@@ -16,7 +16,7 @@ export function tripDuration(flights: Flight[], timeZones: Map<string, string>):
 
 /** Minutes waiting at the hub. Both times are local to the same airport, so no time zone is needed. */
 export function connectionMinutes(first: Flight, second: Flight): number {
-    return minutesBetween(first.arrivalDate, undefined, second.departureDate, undefined);
+    return minutesAtSamePlace(first.arrivalDate, second.departureDate);
 }
 
 export async function findCheapestRoutes(
