@@ -770,24 +770,6 @@ html {
   opacity: 0.7;
 }
 
-/* Vilnius Balloon Warning */
-.vilnius-balloon-warning {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  margin: 0.75rem 0;
-  background: rgba(239, 68, 68, 0.05);
-  border-left: 3px solid var(--danger);
-  border-radius: 0.5rem;
-  animation: fadeInDown 0.4s ease-out;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--danger);
-  border: 1px solid rgba(239, 68, 68, 0.1);
-  border-left: 3px solid var(--danger);
-}
-
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -803,18 +785,6 @@ html {
   from {
     opacity: 0;
     transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
   }
 
   to {

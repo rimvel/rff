@@ -17,18 +17,6 @@ function roundTripBookingUrl(origin: string, destination: string, departureOut: 
     return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${localDay(departureOut)}&dateIn=${localDay(departureIn)}&roundtrip=true`;
 }
 
-// Flights at Vilnius between 19:00 and 03:00 risk cancellation due to meteorological balloons
-function isVilniusBalloonRisk(local: string, airport: string): boolean {
-    if (airport !== 'VNO') return false;
-    const hour = Number(local.slice(11, 13));
-    return hour >= 19 || hour < 3;
-}
-
-function hasVilniusBalloonRisk(result: SearchResult): boolean {
-    const flights = [...result.flights, ...(result.returnFlights?.[0]?.flights ?? [])];
-    return flights.some(f => isVilniusBalloonRisk(f.departureDate, f.origin) || isVilniusBalloonRisk(f.arrivalDate, f.destination));
-}
-
 function stopsLabel(leg: RouteResult): string {
     return leg.type === 'direct' ? 'Direct' : `1 stop · ${leg.via}`;
 }
@@ -150,12 +138,6 @@ export default function ResultCard({ result, placeName }: { result: SearchResult
                     </span>
                 </div>
             </header>
-
-            {hasVilniusBalloonRisk(result) && (
-                <div className="vilnius-balloon-warning">
-                    Cancellation risk (19:00-03:00) due to meteorological balloons at VNO 🎈
-                </div>
-            )}
 
             <div className={`rc-legs ${ret ? 'two' : ''}`}>
                 <section className="rc-leg">
