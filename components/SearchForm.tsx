@@ -2,25 +2,19 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
-import { buildAirportIndex } from '@/lib/airportGroups';
-import { addDays, todayLocal } from '@/lib/time';
+import { buildAirportIndex, labelFor } from '@/lib/airportGroups';
+import { SearchRequest } from '@/lib/searchUrl';
+import { addDays } from '@/lib/time';
 import { DateDirection } from '@/lib/types';
 import AirportInput from './AirportInput';
-
-export interface SearchRequest {
-    origin: string;
-    dest: string;
-    date: string;
-    returnDate?: string;
-    departureDateRange?: number;
-    returnDateRange?: number;
-    departureDateDirection?: DateDirection;
-    returnDateDirection?: DateDirection;
-}
 
 interface SearchFormProps {
     onSearch: (request: SearchRequest) => void;
     isLoading: boolean;
+    /** Values to start with, e.g. from a shared link */
+    initial: SearchRequest | null;
+    /** Today's date in the user's time zone ('' until known) */
+    today: string;
 }
 
 const DEFAULT_TRIP_DAYS = 7;
@@ -118,24 +112,28 @@ function DateField({ id, label, value, min, onChange, flexLabel }: {
     );
 }
 
-export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
+export default function SearchForm({ onSearch, isLoading, initial, today }: SearchFormProps) {
     const { airports } = useAirports();
     const index = useMemo(() => buildAirportIndex(airports), [airports]);
 
-    const [origin, setOrigin] = useState('');
-    const [dest, setDest] = useState('');
-    const [originText, setOriginText] = useState('');
-    const [destText, setDestText] = useState('');
-    const [date, setDate] = useState(() => addDays(todayLocal(), 1));
-    const [returnDate, setReturnDate] = useState('');
-    const [roundTrip, setRoundTrip] = useState(false);
+    const [origin, setOrigin] = useState(initial?.origin ?? '');
+    const [dest, setDest] = useState(initial?.dest ?? '');
+    // What the user is typing; null shows the name of the selected airports instead
+    const [originTyped, setOriginTyped] = useState<string | null>(null);
+    const [destTyped, setDestTyped] = useState<string | null>(null);
+    const [date, setDate] = useState(initial?.date ?? (today ? addDays(today, 1) : ''));
+    const [returnDate, setReturnDate] = useState(initial?.returnDate ?? '');
+    const [roundTrip, setRoundTrip] = useState(!!initial?.returnDate);
 
-    const [flexibleDeparture, setFlexibleDeparture] = useState(false);
-    const [flexibleReturn, setFlexibleReturn] = useState(false);
-    const [departureDateRange, setDepartureDateRange] = useState(3);
-    const [returnDateRange, setReturnDateRange] = useState(3);
-    const [departureDateDirection, setDepartureDateDirection] = useState<DateDirection>('both');
-    const [returnDateDirection, setReturnDateDirection] = useState<DateDirection>('both');
+    const [flexibleDeparture, setFlexibleDeparture] = useState(!!initial?.departureDateRange);
+    const [flexibleReturn, setFlexibleReturn] = useState(!!initial?.returnDateRange);
+    const [departureDateRange, setDepartureDateRange] = useState(initial?.departureDateRange ?? 3);
+    const [returnDateRange, setReturnDateRange] = useState(initial?.returnDateRange ?? 3);
+    const [departureDateDirection, setDepartureDateDirection] = useState<DateDirection>(initial?.departureDateDirection ?? 'both');
+    const [returnDateDirection, setReturnDateDirection] = useState<DateDirection>(initial?.returnDateDirection ?? 'both');
+
+    const originText = originTyped ?? labelFor(origin, index);
+    const destText = destTyped ?? labelFor(dest, index);
 
     const destInputRef = useRef<HTMLInputElement>(null);
 
@@ -171,9 +169,9 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
 
     const handleSwap = () => {
         setOrigin(dest);
-        setOriginText(destText);
+        setOriginTyped(destTyped);
         setDest(origin);
-        setDestText(originText);
+        setDestTyped(originTyped);
     };
 
     return (
@@ -185,12 +183,12 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                     index={index}
                     text={originText}
                     onTextChange={text => {
-                        setOriginText(text);
+                        setOriginTyped(text);
                         setOrigin('');
                     }}
-                    onSelect={(codes, text) => {
+                    onSelect={codes => {
                         setOrigin(codes);
-                        setOriginText(text);
+                        setOriginTyped(null);
                         // Move on to the destination after picking an origin
                         if (codes) setTimeout(() => destInputRef.current?.focus(), 0);
                     }}
@@ -219,12 +217,12 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                     index={index}
                     text={destText}
                     onTextChange={text => {
-                        setDestText(text);
+                        setDestTyped(text);
                         setDest('');
                     }}
-                    onSelect={(codes, text) => {
+                    onSelect={codes => {
                         setDest(codes);
-                        setDestText(text);
+                        setDestTyped(null);
                     }}
                 />
             </div>
@@ -234,7 +232,7 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
                     id="date"
                     label="Departure"
                     value={date}
-                    min={todayLocal()}
+                    min={today}
                     onChange={changeDepartureDate}
                     flexLabel={flexibleDeparture ? `${directionSymbol(departureDateDirection)}${departureDateRange}d` : undefined}
                 />

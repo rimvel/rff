@@ -62,6 +62,11 @@ export function minutesBetween(start: string, startZone: string | undefined, end
     return (localToUtcMs(end, endZone) - localToUtcMs(start, startZone)) / 60000;
 }
 
+/** Minutes between two local times at the same place (e.g. a layover at one airport). */
+export function minutesAtSamePlace(from: string, to: string): number {
+    return (parseWallClock(to) - parseWallClock(from)) / 60000;
+}
+
 /** Add days to a "YYYY-MM-DD" date. Pure calendar arithmetic, independent of the server's time zone. */
 export function addDays(date: string, days: number): string {
     const [y, m, d] = date.split('-').map(Number);

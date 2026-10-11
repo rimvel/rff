@@ -87,3 +87,31 @@ export function searchAirports(index: AirportIndex, search: string): AirportMatc
             .sort((a, b) => a.country.name.localeCompare(b.country.name)),
     };
 }
+
+/**
+ * Text for the airport field given selected codes: "VNO - Vilnius", "Barcelona - All (3)",
+ * or the codes themselves when they don't match a known group.
+ */
+export function labelFor(codes: string, index: AirportIndex): string {
+    if (!codes) return '';
+    const list = codes.split(',');
+    if (list.length === 1) {
+        const airport = index.airports.find(a => a.code === list[0]);
+        return airport ? `${airport.code} - ${airport.name}` : list[0];
+    }
+    const wanted = [...list].sort().join(',');
+    const group = [...index.cities, ...index.regions, ...index.countries]
+        .find(g => [...g.airportCodes].sort().join(',') === wanted);
+    return group ? `${group.name} - All (${group.airportCodes.length})` : list.join(', ');
+}
+
+/** Short place name for compact displays: "Vilnius", "Barcelona", or "3 airports". */
+export function shortLabelFor(codes: string, index: AirportIndex): string {
+    const list = codes.split(',');
+    if (list.length === 1) {
+        const airport = index.airports.find(a => a.code === list[0]);
+        return airport ? (airport.macCity ?? airport.city).name : list[0];
+    }
+    const label = labelFor(codes, index);
+    return label.includes(' - All') ? label.split(' - All')[0] : `${list.length} airports`;
+}
