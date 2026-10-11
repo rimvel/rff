@@ -30,8 +30,8 @@ interface PriceCalendarProps {
 
 export default function PriceCalendar({ request, onPickDate }: PriceCalendarProps) {
     const today = useToday();
-    // Open on wide screens; on phones it starts collapsed so results stay near the top
-    const [open, setOpen] = useState(() => window.matchMedia('(min-width: 769px)').matches);
+    // Starts collapsed so the results come first; prices are only fetched once it's opened
+    const [open, setOpen] = useState(false);
     const [month, setMonth] = useState(request.date.slice(0, 7));
     const [loaded, setLoaded] = useState<{ month: string; calendar: Calendar | null } | null>(null);
     const calendar = loaded?.month === month ? loaded.calendar : undefined; // undefined while loading
