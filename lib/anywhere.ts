@@ -8,11 +8,7 @@ import type { SearchParams } from './search';
 import { expandDates } from './time';
 import { Flight, SearchResult } from './types';
 
-export { ANYWHERE } from './searchUrl';
-
-// Each origin and day costs about 20 requests (one per connecting airport), so keep searches small
-export const MAX_ANYWHERE_ORIGINS = 5;
-export const MAX_ANYWHERE_ORIGIN_DAYS = 15; // origins x departure days
+export { ANYWHERE, MAX_ANYWHERE_ORIGIN_DAYS, MAX_ANYWHERE_ORIGINS } from './searchUrl';
 // Return flights are looked up for this many of the cheapest destinations
 export const MAX_ROUND_TRIP_DESTINATIONS = 40;
 

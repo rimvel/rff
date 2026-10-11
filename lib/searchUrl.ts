@@ -29,6 +29,10 @@ export const DEFAULT_VIEW: ResultView = { sort: 'cheapest', directOnly: false };
 /** Destination meaning "show the cheapest places to fly to" */
 export const ANYWHERE = 'ANYWHERE';
 
+// "Anywhere" costs about 20 requests per origin and day, so those searches are kept small
+export const MAX_ANYWHERE_ORIGINS = 5;
+export const MAX_ANYWHERE_ORIGIN_DAYS = 15; // origins x departure days
+
 const CODES = /^[A-Z]{3}(,[A-Z]{3})*$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 

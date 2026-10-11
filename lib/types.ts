@@ -20,6 +20,7 @@ export interface Airport {
         code: string;
     };
     timeZone?: string; // IANA zone, e.g. "Europe/Vilnius"
+    coordinates?: { latitude: number; longitude: number };
 }
 
 export interface Price {
@@ -34,6 +35,7 @@ export interface Flight {
     arrivalDate: string; // local time at destination, no offset
     price: Price;
     flightNumber?: string; // not known for every fare
+    minutes?: number; // flight time, time zones accounted for
 }
 
 export interface RouteResult {
