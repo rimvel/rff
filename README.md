@@ -106,7 +106,7 @@ To keep one search from sending thousands of requests to Ryanair, a search is li
 
 ## Development
 
-Requires Node.js 20.12 or newer.
+Requires Node.js 24 (the version Azure runs: `NODE|24-lts`, supported until April 2028).
 
 ```bash
 npm install
