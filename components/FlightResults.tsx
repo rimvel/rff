@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import { buildAirportIndex } from '@/lib/airportGroups';
 import { formatDuration, formatPrice } from '@/lib/format';
 import { applyView, onePerDestination, summarize } from '@/lib/resultFilters';
@@ -18,11 +18,13 @@ interface FlightResultsProps {
     onViewChange: (view: ResultView) => void;
     /** Run another search, e.g. one of the suggestions when nothing was found */
     onSearch: (request: SearchRequest) => void;
+    /** Shown next to the results title (e.g. "Save route") */
+    titleAction?: ReactNode;
 }
 
 const PAGE_SIZE = 50;
 
-export default function FlightResults({ request, results, view, onViewChange, onSearch }: FlightResultsProps) {
+export default function FlightResults({ request, results, view, onViewChange, onSearch, titleAction }: FlightResultsProps) {
     const { airports } = useAirports();
     const index = useMemo(() => buildAirportIndex(airports), [airports]);
     const [shown, setShown] = useState(PAGE_SIZE);
@@ -74,11 +76,14 @@ export default function FlightResults({ request, results, view, onViewChange, on
 
     return (
         <div className="results-container">
-            <h2 className="results-title">
-                {visible.length === total
-                    ? `Found ${total} ${noun(total)}`
-                    : `Showing ${visible.length} of ${total} ${noun(total)}`}
-            </h2>
+            <div className="results-heading">
+                <h2 className="results-title">
+                    {visible.length === total
+                        ? `Found ${total} ${noun(total)}`
+                        : `Showing ${visible.length} of ${total} ${noun(total)}`}
+                </h2>
+                {titleAction}
+            </div>
             {summary && (
                 <p className="results-summary">
                     Cheapest <strong>{formatPrice(summary.cheapest)}</strong>

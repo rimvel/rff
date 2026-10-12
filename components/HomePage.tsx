@@ -6,9 +6,12 @@ import SearchForm from '@/components/SearchForm';
 import FlightResults from '@/components/FlightResults';
 import PriceCalendar from '@/components/PriceCalendar';
 import RecentSearches from '@/components/RecentSearches';
+import SavedRoutes, { SaveRouteButton } from '@/components/SavedRoutes';
 import ThemeToggle from '@/components/ThemeToggle';
 import { buildAirportIndex, shortLabelFor } from '@/lib/airportGroups';
 import { applyFlightNumbers, readEvents } from '@/lib/events';
+import { routeOf, searchFor } from '@/lib/favourites';
+import { addDays } from '@/lib/time';
 import { saveRecentSearch } from '@/lib/recentSearches';
 import { ANYWHERE, moveTrip, readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
 import { SearchResult } from '@/lib/types';
@@ -177,6 +180,9 @@ export default function HomePage() {
           isLoading={isLoading}
         />
 
+        {/* Saved routes are searched on the dates being looked at (or tomorrow) */}
+        <SavedRoutes onPick={route => setQueryString(toPageParams(searchFor(route, request?.date ?? addDays(today, 1))))} />
+
         <RecentSearches currentKey={key} onPick={req => setQueryString(toPageParams(req))} />
 
         {isLoading && (
@@ -236,6 +242,7 @@ export default function HomePage() {
             view={view}
             onViewChange={handleViewChange}
             onSearch={req => setQueryString(toPageParams(req))}
+            titleAction={<SaveRouteButton route={routeOf(request, shortLabelFor(request.origin, index), shortLabelFor(request.dest, index))} />}
           />
         )}
         </div>
