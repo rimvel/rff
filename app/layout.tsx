@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -31,8 +31,20 @@ export const metadata: Metadata = {
   icons: {
     icon: "/logo.svg?v=4",
     shortcut: "/logo.svg?v=4",
-    apple: "/logo.svg?v=4",
+    apple: "/pwa-icons/180.png",
   },
+  // When added to an iPhone home screen: open full screen, named "RFF"
+  appleWebApp: {
+    capable: true,
+    title: "RFF",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#5161ce",
+  // Draw behind the phone's status bar and notch; the page adds the needed padding (safe-area insets)
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

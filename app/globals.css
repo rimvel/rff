@@ -57,6 +57,11 @@ html {
   display: flex;
   flex-direction: column;
   padding: 1.5rem 1rem;
+  /* Keep clear of the status bar and notch when opened from the home screen */
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-right: calc(1rem + env(safe-area-inset-right));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding-left: calc(1rem + env(safe-area-inset-left));
   position: relative;
 }
 
@@ -1674,4 +1679,91 @@ html {
 
 .suggestion-btn:hover {
   background: rgba(14, 165, 233, 0.15);
+}
+
+.inline-retry {
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inline-retry:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Saved routes */
+.results-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1000px;
+  margin: 0 auto 1.25rem;
+}
+
+.results-heading .results-title {
+  margin-bottom: 0;
+}
+
+.save-route-btn {
+  flex-shrink: 0;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-route-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.save-route-btn.saved {
+  background: rgba(250, 204, 21, 0.2);
+  border-color: rgba(250, 204, 21, 0.7);
+  color: #fde68a;
+}
+
+.saved-routes {
+  margin-bottom: 0.75rem;
+}
+
+.recent-chip.saved-chip {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.saved-chip-main,
+.saved-chip-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.saved-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem 0.375rem 0.875rem;
+}
+
+.saved-chip-remove {
+  padding: 0.375rem 0.75rem 0.375rem 0.375rem;
+  opacity: 0.6;
+}
+
+.saved-chip-remove:hover {
+  opacity: 1;
 }

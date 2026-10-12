@@ -53,6 +53,16 @@ in the browser. The search, sorting and filters are kept in the page address, so
 `/?from=VNO&to=BCN,GRO,REU&date=2026-11-13&return=2026-11-20&returnFlex=2&sort=fastest` can be shared or
 bookmarked, and Back/Forward work. The last 5 searches are remembered in the browser (localStorage).
 
+**Saved routes**: "☆ Save route" next to the results title keeps the route (not the dates) in the browser.
+Saved routes appear above the recent searches; clicking one searches it on the dates being looked at (or
+tomorrow), keeping a round trip's length.
+
+**Installable app**: the site has a web app manifest and generated icons (`app/manifest.ts`,
+`app/pwa-icons`), so it can be added to a phone's home screen and opens full screen as "RFF".
+
+A search that receives nothing from the server for 60 s is stopped with "The search was interrupted, please
+try again" and a Try again button.
+
 ## Project layout
 
 | Path | What it does |
