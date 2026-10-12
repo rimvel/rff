@@ -11,6 +11,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import { buildAirportIndex, shortLabelFor } from '@/lib/airportGroups';
 import { applyFlightNumbers, readEvents } from '@/lib/events';
 import { routeOf, searchFor } from '@/lib/favourites';
+import { searchTitle, SITE_TITLE } from '@/lib/searchTitle';
 import { addDays } from '@/lib/time';
 import { saveRecentSearch } from '@/lib/recentSearches';
 import { ANYWHERE, moveTrip, readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
@@ -126,6 +127,12 @@ export default function HomePage() {
       controller.abort();
     };
   }, [key, runId]);
+
+  // Keep the browser tab title in step with the search shown (the server only sets it on first load)
+  useEffect(() => {
+    const req = readSearch(new URLSearchParams(key));
+    document.title = req ? searchTitle(req, index) : SITE_TITLE;
+  }, [key, index]);
 
   // Remember searches once airport names are known, so the list can show them
   useEffect(() => {
