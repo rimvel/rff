@@ -8,10 +8,10 @@ const roundTrip: SearchRequest = {
 
 describe('page address', () => {
     it('round-trips a search through the address', () => {
-        const params = toPageParams(roundTrip, { sort: 'fastest', directOnly: true, sameAirport: true, maxPrice: 150 });
+        const params = toPageParams(roundTrip, { sort: 'fastest', directOnly: true, sameAirport: true, showMap: false, maxPrice: 150 });
         expect(params.toString()).toBe('from=VNO&to=BCN%2CGRO%2CREU&date=2026-10-13&return=2026-10-20&flex=2&flexDir=after&returnFlex=3&sort=fastest&direct=1&same=1&maxPrice=150');
         expect(readSearch(params)).toEqual(roundTrip);
-        expect(readView(params)).toEqual({ sort: 'fastest', directOnly: true, sameAirport: true, maxLayoverHours: undefined, maxPrice: 150 });
+        expect(readView(params)).toEqual({ sort: 'fastest', directOnly: true, sameAirport: true, showMap: false, maxLayoverHours: undefined, maxPrice: 150 });
     });
 
     it('keeps simple searches short', () => {
@@ -22,7 +22,8 @@ describe('page address', () => {
         expect(readSearch(new URLSearchParams(''))).toBeNull();
         expect(readSearch(new URLSearchParams('from=VNO&to=STN'))).toBeNull();
         expect(readSearch(new URLSearchParams('from=VNO;x&to=STN&date=2026-10-15'))).toBeNull();
-        expect(readView(new URLSearchParams('sort=nonsense&maxPrice=-5'))).toEqual({ sort: 'cheapest', directOnly: false, sameAirport: false, maxLayoverHours: undefined, maxPrice: undefined });
+        expect(readView(new URLSearchParams('sort=nonsense&maxPrice=-5'))).toEqual({ sort: 'cheapest', directOnly: false, sameAirport: false, showMap: false, maxLayoverHours: undefined, maxPrice: undefined });
+        expect(readView(new URLSearchParams('show=map')).showMap).toBe(true);
     });
 
     it('accepts "Anywhere" as a destination only', () => {
@@ -35,7 +36,7 @@ describe('page address', () => {
     });
 
     it('identifies a search regardless of sorting and filters', () => {
-        const a = toPageParams(roundTrip, { sort: 'earliest', directOnly: true, sameAirport: true });
+        const a = toPageParams(roundTrip, { sort: 'earliest', directOnly: true, sameAirport: true, showMap: true });
         expect(searchKey(readSearch(a))).toBe(searchKey(roundTrip));
     });
 });
