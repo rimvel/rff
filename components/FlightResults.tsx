@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { buildAirportIndex } from '@/lib/airportGroups';
 import { formatDuration, formatPrice } from '@/lib/format';
 import { applyView, onePerDestination, summarize } from '@/lib/resultFilters';
@@ -23,6 +24,12 @@ interface FlightResultsProps {
 }
 
 const PAGE_SIZE = 50;
+
+// The map (and its library) is only loaded when someone opens the map view
+const AnywhereMap = dynamic(() => import('./AnywhereMap'), {
+    ssr: false,
+    loading: () => <div className="anywhere-map map-loading">Loading map…</div>,
+});
 
 export default function FlightResults({ request, results, view, onViewChange, onSearch, titleAction }: FlightResultsProps) {
     const { airports } = useAirports();
@@ -96,6 +103,26 @@ export default function FlightResults({ request, results, view, onViewChange, on
 
             <ResultsToolbar view={view} onChange={onViewChange} />
 
+            {anywhere && (
+                <div className="toggle-group results-layout" role="tablist" aria-label="Show results as">
+                    <button type="button" role="tab" aria-selected={!view.showMap} className={`toggle-btn ${!view.showMap ? 'active' : ''}`} onClick={() => onViewChange({ ...view, showMap: false })}>
+                        List
+                    </button>
+                    <button type="button" role="tab" aria-selected={view.showMap} className={`toggle-btn ${view.showMap ? 'active' : ''}`} onClick={() => onViewChange({ ...view, showMap: true })}>
+                        Map
+                    </button>
+                </div>
+            )}
+
+            {anywhere && view.showMap && visible.length > 0 && (
+                <AnywhereMap
+                    results={visible}
+                    origins={request.origin.split(',')}
+                    places={places}
+                    onSearchDestination={code => onSearch({ ...request, dest: code })}
+                />
+            )}
+
             {visible.length === 0 && hasFilters(view) && (
                 <div className="no-results">
                     <p className="no-results-title">No options match your filters.</p>
@@ -107,13 +134,13 @@ export default function FlightResults({ request, results, view, onViewChange, on
                 </div>
             )}
 
-            <div className="results-list">
+            <div className="results-list" hidden={anywhere && view.showMap}>
                 {visible.slice(0, shown).map((result, i) => (
                     <ResultCard key={i} result={result} places={places} />
                 ))}
             </div>
 
-            {visible.length > shown && (
+            {visible.length > shown && !(anywhere && view.showMap) && (
                 <button type="button" className="show-more-btn" onClick={() => setShown(n => n + PAGE_SIZE)}>
                     Show more ({visible.length - shown} left)
                 </button>

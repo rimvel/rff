@@ -37,6 +37,11 @@ your home airports within 200 km (out of Vilnius, back to Kaunas). Same-city air
 times are in `lib/mixedAirports.ts`. These trips are badged, never "booked as one trip", and hidden by the
 "Same airport only" filter. They need no extra requests to Ryanair.
 
+**Map view**: "Anywhere" results can be shown as price pins on a map (List / Map toggle, kept in the page
+address as `show=map`). It uses Leaflet with OpenStreetMap tiles (no key; fine for light use under the
+[OSM tile policy](https://operations.osmfoundation.org/policies/tiles/); switch to a hosted tile service if traffic
+grows). The map code only loads when the map is opened.
+
 Ryanair's public fare API returns only the **cheapest flight per route per day**, so a connection that would
 need a more expensive flight on one leg can be missed.
 

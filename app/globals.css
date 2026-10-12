@@ -1882,3 +1882,92 @@ html {
     font-size: 0.5625rem !important;
   }
 }
+
+/* "Anywhere" map */
+.results-layout {
+  margin: -0.5rem 0 1.25rem;
+  min-width: 0;
+  width: fit-content;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.results-layout .toggle-btn:not(.active) {
+  color: white;
+}
+
+.anywhere-map {
+  height: 520px;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  background: var(--card-bg);
+}
+
+.map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+  opacity: 0.7;
+}
+
+.map-tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+.map-pin-wrapper {
+  background: none;
+  border: none;
+}
+
+/* Bring a pin to the front when pointed at, since nearby pins overlap */
+.map-pin-wrapper:hover {
+  z-index: 10000 !important;
+}
+
+.map-pin {
+  display: inline-block;
+  padding: 0.125rem 0.4rem;
+  border-radius: 9999px;
+  background: white;
+  color: #1e293b;
+  border: 2px solid #8b5cf6;
+  font: 700 0.75rem/1.3 var(--font-inter), sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.map-pin.cheap {
+  border-color: #10b981;
+  color: #047857;
+}
+
+.map-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 11rem;
+  font-size: 0.8125rem;
+}
+
+.map-popup strong {
+  font-size: 0.9375rem;
+}
+
+.map-popup-price {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.map-popup-btn {
+  margin-top: 0.5rem;
+  align-self: flex-start;
+}
+
+@media (max-width: 768px) {
+  .anywhere-map {
+    height: 440px;
+  }
+}
