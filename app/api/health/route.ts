@@ -16,6 +16,7 @@ export async function GET() {
         {
             status,
             version: process.env.BUILD_SHA ?? 'unknown',
+            node: process.version,
             builtAt: process.env.BUILD_TIME ?? null,
             startedAt,
             uptimeSeconds: Math.round(process.uptime()),
