@@ -156,3 +156,45 @@ describe('one-stop search with airport changes', () => {
         expect(await findOneStop('VNO', 'LIS', ['2026-11-09'], new Map(), false)).toEqual([]);
     });
 });
+
+describe('round-trip date grid', () => {
+    // Out to Stansted on 6/7 Nov; back from Stansted (9 Nov) or Luton (9/10 Nov)
+    const FLIGHTS: Record<string, [string, string, number][]> = {
+        'VNO-STN': [['2026-11-06T06:15:00', '2026-11-06T07:05:00', 40], ['2026-11-07T06:15:00', '2026-11-07T07:05:00', 30]],
+        'STN-VNO': [['2026-11-09T10:00:00', '2026-11-09T14:45:00', 90]],
+        'LTN-VNO': [['2026-11-09T08:55:00', '2026-11-09T13:40:00', 50], ['2026-11-10T08:55:00', '2026-11-10T13:40:00', 20]],
+    };
+    function fakeFetch(url: string) {
+        const json = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+        if (url.includes('/airports/en/active') || url.includes('/routes/')) return json([]);
+        const m = url.match(/oneWayFares\/([A-Z]{3})\/([A-Z]{3})\/cheapestPerDay\?outboundMonthOfDate=(\d{4}-\d{2})/);
+        const list = m ? (FLIGHTS[`${m[1]}-${m[2]}`] ?? []).filter(f => f[0].startsWith(m[3])) : [];
+        return json({ outbound: { fares: list.map(f => ({ day: f[0].slice(0, 10), departureDate: f[0], arrivalDate: f[1], price: { value: f[2], currencyCode: 'EUR' }, soldOut: false, unavailable: false })) } });
+    }
+    beforeEach(() => {
+        vi.resetModules();
+        vi.stubGlobal('fetch', vi.fn(fakeFetch));
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('gives the cheapest round trip for each departure and return day', async () => {
+        const { roundTripGrid } = await import('../lib/calendar');
+        const grid = await roundTripGrid({ origins: ['VNO'], dests: ['STN', 'LTN'], date: '2026-11-06', returnDate: '2026-11-09' });
+        expect(grid.departures).toEqual(['2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08', '2026-11-09']);
+        expect(grid.returns[0]).toBe('2026-11-06');
+        const cell = (dep: string, ret: string) => grid.prices[grid.departures.indexOf(dep)][grid.returns.indexOf(ret)];
+        expect(cell('2026-11-06', '2026-11-09')).toBe(90); // out STN 40 + back from Luton 50 (cheaper than Stansted 90)
+        expect(cell('2026-11-07', '2026-11-10')).toBe(50); // 30 + 20
+        expect(cell('2026-11-05', '2026-11-09')).toBeNull(); // no flight out that day
+        expect(cell('2026-11-09', '2026-11-09')).toBeNull(); // return must be after departure
+    });
+
+    it('checks the date grid request', async () => {
+        const { parseGridParams } = await import('../lib/calendar');
+        const parse = (q: string) => parseGridParams(new URLSearchParams(q));
+        expect(parse('origin=VNO&dest=STN,LTN&date=2026-11-06&returnDate=2026-11-09').ok).toBe(true);
+        expect(parse('origin=VNO&dest=STN&date=2026-11-06').ok).toBe(false);
+        expect(parse('origin=VNO&dest=STN&date=2026-11-09&returnDate=2026-11-06').ok).toBe(false);
+        expect(parse('origin=VNO&dest=ANYWHERE&date=2026-11-06&returnDate=2026-11-09').ok).toBe(false);
+    });
+});
