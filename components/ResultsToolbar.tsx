@@ -16,7 +16,7 @@ interface ResultsToolbarProps {
 }
 
 export function hasFilters(view: ResultView): boolean {
-    return view.directOnly || !!view.maxLayoverHours || !!view.maxPrice;
+    return view.directOnly || view.sameAirport || !!view.maxLayoverHours || !!view.maxPrice;
 }
 
 export default function ResultsToolbar({ view, onChange }: ResultsToolbarProps) {
@@ -47,6 +47,18 @@ export default function ResultsToolbar({ view, onChange }: ResultsToolbarProps) 
                         onClick={() => set({ directOnly: !view.directOnly, maxLayoverHours: undefined })}
                     >
                         Direct only
+                    </button>
+                </div>
+
+                <div className={`pill-selector ${view.sameAirport ? 'active' : ''}`}>
+                    <button
+                        type="button"
+                        className="pill-toggle"
+                        aria-pressed={view.sameAirport}
+                        title="Hide trips that fly back from, or to, a different airport"
+                        onClick={() => set({ sameAirport: !view.sameAirport })}
+                    >
+                        Same airport only
                     </button>
                 </div>
 

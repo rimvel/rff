@@ -1,3 +1,4 @@
+import { distanceKm } from './mixedAirports';
 import { ANYWHERE } from './searchUrl';
 import { Airport } from './types';
 
@@ -123,14 +124,6 @@ export function shortLabelFor(codes: string, index: AirportIndex): string {
         return airport ? (airport.macCity ?? airport.city).name : code;
     }))];
     return cities.length <= 3 ? cities.join(', ') : `${list.length} airports`;
-}
-
-function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
-    const rad = Math.PI / 180;
-    const dLat = (b.latitude - a.latitude) * rad;
-    const dLon = (b.longitude - a.longitude) * rad;
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
-    return 2 * 6371 * Math.asin(Math.sqrt(h));
 }
 
 /** Other airports within `maxKm` of any of the given ones, nearest first. */

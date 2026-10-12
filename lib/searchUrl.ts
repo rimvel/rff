@@ -20,11 +20,12 @@ export type SortOrder = 'cheapest' | 'fastest' | 'earliest';
 export interface ResultView {
     sort: SortOrder;
     directOnly: boolean;
+    sameAirport: boolean; // hide trips that use a different airport on the way back
     maxLayoverHours?: number;
     maxPrice?: number;
 }
 
-export const DEFAULT_VIEW: ResultView = { sort: 'cheapest', directOnly: false };
+export const DEFAULT_VIEW: ResultView = { sort: 'cheapest', directOnly: false, sameAirport: false };
 
 /** Destination meaning "show the cheapest places to fly to" */
 export const ANYWHERE = 'ANYWHERE';
@@ -79,6 +80,7 @@ export function readView(params: URLSearchParams): ResultView {
     return {
         sort: sort === 'fastest' || sort === 'earliest' ? sort : 'cheapest',
         directOnly: params.get('direct') === '1',
+        sameAirport: params.get('same') === '1',
         maxLayoverHours: positiveNumber(params.get('maxLayover')),
         maxPrice: positiveNumber(params.get('maxPrice')),
     };
@@ -98,6 +100,7 @@ export function toPageParams(req: SearchRequest, view: ResultView = DEFAULT_VIEW
     }
     if (view.sort !== 'cheapest') p.set('sort', view.sort);
     if (view.directOnly) p.set('direct', '1');
+    if (view.sameAirport) p.set('same', '1');
     if (view.maxLayoverHours) p.set('maxLayover', String(view.maxLayoverHours));
     if (view.maxPrice) p.set('maxPrice', String(view.maxPrice));
     return p;

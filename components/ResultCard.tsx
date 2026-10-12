@@ -3,7 +3,8 @@
 import { Fragment } from 'react';
 import { formatDay, formatDuration, formatPrice, formatStay, formatTime } from '@/lib/format';
 import { layoverBadges, layoverMinutes } from '@/lib/layoverRisk';
-import { isAllDirect } from '@/lib/resultFilters';
+import { distanceKm, transferMinutes } from '@/lib/mixedAirports';
+import { isAllDirect, otherAirportsBack } from '@/lib/resultFilters';
 import { minutesAtSamePlace } from '@/lib/time';
 import { Flight, RouteResult, SearchResult } from '@/lib/types';
 
@@ -88,16 +89,51 @@ function Timeline({ leg, placeName }: { leg: RouteResult; placeName: (code: stri
     );
 }
 
-export default function ResultCard({ result, placeName }: { result: SearchResult; placeName: (code: string) => string }) {
+/** The return leaves from another airport in the same city. */
+function OtherAirportBadge({ from, to, places }: { from: string; to: string; places: Places }) {
+    const minutes = transferMinutes(from, to) ?? 0;
+    return (
+        <span
+            className="risk-badge other-airport"
+            title={`You arrive at ${places.name(from)} and fly back from ${places.name(to)}: about ${formatDuration(minutes)} between them by coach or public transport.`}
+        >
+            Other airport · ~{formatDuration(minutes)} away
+        </span>
+    );
+}
+
+/** The return lands at another of the home airports you selected. */
+function OtherHomeBadge({ outFrom, backTo, places }: { outFrom: string; backTo: string; places: Places }) {
+    const a = places.coordinates(outFrom);
+    const b = places.coordinates(backTo);
+    const km = a && b ? Math.round(distanceKm(a, b) / 5) * 5 : undefined;
+    return (
+        <span className="risk-badge other-airport" title={`You leave from ${places.name(outFrom)} but come back to ${places.name(backTo)}.`}>
+            Lands in {places.city(backTo)}{km !== undefined && ` · ~${km} km from ${places.city(outFrom)}`}
+        </span>
+    );
+}
+
+/** How the result card names and locates airports. */
+export interface Places {
+    name: (code: string) => string; // "London Stansted"
+    city: (code: string) => string; // "London"
+    coordinates: (code: string) => { latitude: number; longitude: number } | undefined;
+}
+
+export default function ResultCard({ result, places }: { result: SearchResult; places: Places }) {
+    const placeName = places.name;
     const ret = result.returnFlights?.[0];
     const legs = ret ? [result, ret] : [result];
     const tickets = legs.reduce((n, leg) => n + leg.flights.length, 0);
+    const back = otherAirportsBack(result);
 
-    // One booking covers the whole trip only when every flight is direct
+    // One booking covers the whole trip only when every flight is direct (and, for a round trip,
+    // it comes back between the same two airports)
     let mainBookingUrl = '';
     if (!ret && result.type === 'direct') {
         mainBookingUrl = bookingUrl(result.origin, result.destination, result.flights[0].departureDate);
-    } else if (ret && isAllDirect(result)) {
+    } else if (ret && isAllDirect(result) && !back.from && !back.to) {
         mainBookingUrl = roundTripBookingUrl(result.origin, result.destination, result.flights[0].departureDate, ret.flights[0].departureDate);
     }
 
@@ -114,7 +150,18 @@ export default function ResultCard({ result, placeName }: { result: SearchResult
         <article className={`result-card ${isAllDirect(result) ? '' : 'layover'}`}>
             <header className="rc-header">
                 <h3 className="rc-route">
-                    {placeName(result.origin)} {ret ? '⇄' : '→'} {placeName(result.destination)}
+                    {ret && (back.from || back.to) ? (
+                        <>
+                            {placeName(result.origin)} → {placeName(result.destination)}
+                            <span className="rc-route-back">
+                                {' · back'}
+                                {back.from && ` from ${placeName(ret.origin)}`}
+                                {back.to && ` to ${placeName(ret.destination)}`}
+                            </span>
+                        </>
+                    ) : (
+                        <>{placeName(result.origin)} {ret ? '⇄' : '→'} {placeName(result.destination)}</>
+                    )}
                 </h3>
                 <div className="rc-meta">
                     {legs.map((leg, i) => (
@@ -149,8 +196,10 @@ export default function ResultCard({ result, placeName }: { result: SearchResult
                         <h4 className="rc-leg-title">
                             Return · {formatDay(ret.flights[0].departureDate)}
                             <span className={`rc-stay ${stayMinutes < 240 ? 'short' : ''}`}>
-                                {formatStay(stayMinutes)} in {placeName(result.destination)}
+                                {formatStay(stayMinutes)} in {back.from ? places.city(result.destination) : placeName(result.destination)}
                             </span>
+                            {back.from && <OtherAirportBadge from={result.destination} to={ret.origin} places={places} />}
+                            {back.to && <OtherHomeBadge outFrom={result.origin} backTo={ret.destination} places={places} />}
                         </h4>
                         <Timeline leg={ret} placeName={placeName} />
                     </section>

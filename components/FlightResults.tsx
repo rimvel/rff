@@ -8,7 +8,7 @@ import { ANYWHERE, DEFAULT_VIEW, ResultView, SearchRequest } from '@/lib/searchU
 import { suggestAlternatives } from '@/lib/suggestions';
 import { SearchResult } from '@/lib/types';
 import { useAirports } from '@/lib/useAirports';
-import ResultCard from './ResultCard';
+import ResultCard, { Places } from './ResultCard';
 import ResultsToolbar, { hasFilters } from './ResultsToolbar';
 
 interface FlightResultsProps {
@@ -28,8 +28,17 @@ export default function FlightResults({ request, results, view, onViewChange, on
     const [shown, setShown] = useState(PAGE_SIZE);
 
     const anywhere = request.dest === ANYWHERE;
-    const airportNames = useMemo(() => new Map(airports.map(a => [a.code, a.name])), [airports]);
-    const placeName = (code: string) => airportNames.get(code) || code;
+    const places = useMemo<Places>(() => {
+        const byCode = new Map(airports.map(a => [a.code, a]));
+        return {
+            name: code => byCode.get(code)?.name ?? code,
+            city: code => {
+                const a = byCode.get(code);
+                return a ? (a.macCity ?? a.city).name : code;
+            },
+            coordinates: code => byCode.get(code)?.coordinates,
+        };
+    }, [airports]);
 
     const visible = useMemo(() => {
         const sorted = applyView(results, view);
@@ -95,7 +104,7 @@ export default function FlightResults({ request, results, view, onViewChange, on
 
             <div className="results-list">
                 {visible.slice(0, shown).map((result, i) => (
-                    <ResultCard key={i} result={result} placeName={placeName} />
+                    <ResultCard key={i} result={result} places={places} />
                 ))}
             </div>
 

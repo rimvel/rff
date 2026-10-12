@@ -1346,6 +1346,11 @@ html {
   color: var(--foreground);
 }
 
+.rc-route-back {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
 .rc-meta {
   grid-area: meta;
   display: flex;
@@ -1592,6 +1597,14 @@ html {
   border-color: rgba(139, 92, 246, 0.35);
 }
 
+.risk-badge.other-airport {
+  color: #c2410c;
+  background: rgba(249, 115, 22, 0.1);
+  border-color: rgba(249, 115, 22, 0.35);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .risk-badge.self-transfer {
   color: #475569;
   background: rgba(100, 116, 139, 0.1);
@@ -1602,12 +1615,14 @@ html {
 [data-theme="dark"] .risk-badge.long { color: #fbbf24; }
 [data-theme="dark"] .risk-badge.overnight { color: #a78bfa; }
 [data-theme="dark"] .risk-badge.self-transfer { color: #cbd5e1; }
+[data-theme="dark"] .risk-badge.other-airport { color: #fb923c; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .risk-badge.tight { color: #f87171; }
   :root:not([data-theme="light"]) .risk-badge.long { color: #fbbf24; }
   :root:not([data-theme="light"]) .risk-badge.overnight { color: #a78bfa; }
   :root:not([data-theme="light"]) .risk-badge.self-transfer { color: #cbd5e1; }
+  :root:not([data-theme="light"]) .risk-badge.other-airport { color: #fb923c; }
 }
 
 @media (max-width: 768px) {

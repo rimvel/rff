@@ -1,8 +1,9 @@
 import { ANYWHERE, MAX_ANYWHERE_ORIGIN_DAYS, MAX_ANYWHERE_ORIGINS, searchAnywhere } from './anywhere';
 import { merge } from './cache';
 import { applyFlightNumbers, flightKey, SearchEvent } from './events';
-import { combineRoundTrips, findDirect, findOneStop } from './finder';
-import { getFlightNumber, getTimeZones, isAirportCode, isRyanairUnavailable } from './ryanair';
+import { combineRoundTrips, combineWithOtherAirports, findDirect, findOneStop } from './finder';
+import { canComeBack } from './mixedAirports';
+import { getCoordinates, getFlightNumber, getTimeZones, isAirportCode, isRyanairUnavailable } from './ryanair';
 import { addDays, expandDates } from './time';
 import { DateDirection, Flight, SearchResult } from './types';
 
@@ -131,6 +132,10 @@ async function* searchPairs(p: SearchParams, timeZones: Map<string, string>): As
     // Keep the total sent to the page reasonable when many airports are searched
     const perPairLimit = Math.max(MAX_RESULTS / 10, Math.ceil((MAX_RESULTS * 3) / Math.max(pairs.length, 1)));
 
+    // Round trips: every pair's flights, so returns can also come from another selected airport (see below)
+    const outboundByPair = new Map<string, SearchResult[]>();
+    const returnsByPair = new Map<string, SearchResult[]>(); // flights back for the pair, dest -> origin
+
     const tasks = pairs.map(({ origin, dest }) => async (emit: (e: SearchEvent) => void) => {
         const pair = `${origin}-${dest}`;
         const send = (results: SearchResult[], final: boolean) => {
@@ -151,13 +156,34 @@ async function* searchPairs(p: SearchParams, timeZones: Map<string, string>): As
         const retDirect = findDirect(dest, origin, returnDates, timeZones);
         const retOneStop = findOneStop(dest, origin, returnDates, timeZones);
         send(combineRoundTrips(await outDirect, await retDirect), false);
-        send(combineRoundTrips(
-            [...(await outDirect), ...(await outOneStop)],
-            [...(await retDirect), ...(await retOneStop)],
-        ), true);
+        const outbound = [...(await outDirect), ...(await outOneStop)];
+        const returns = [...(await retDirect), ...(await retOneStop)];
+        outboundByPair.set(pair, outbound);
+        returnsByPair.set(pair, returns);
+        // Final results come once every pair is done, so they can include other airports' returns
+        send(combineRoundTrips(outbound, returns), pairs.length === 1);
     });
 
     yield* merge(tasks);
+    if (!p.returnDate || pairs.length === 1) return;
+
+    // Round trips that come back from another airport in the same city, or to another selected home
+    // airport nearby. These need no extra requests: every selected airport's returns are already here.
+    const coordinates = await getCoordinates();
+    for (const { origin, dest } of pairs) {
+        const pair = `${origin}-${dest}`;
+        const outbound = outboundByPair.get(pair);
+        if (!outbound) continue; // this pair's search failed; keep what was already sent
+        const otherReturns = pairs
+            .filter(other => other.dest !== dest || other.origin !== origin)
+            .filter(other => canComeBack(origin, dest, other.dest, other.origin, code => coordinates.get(code)))
+            .flatMap(other => returnsByPair.get(`${other.origin}-${other.dest}`) ?? []);
+        const results = [
+            ...combineRoundTrips(outbound, returnsByPair.get(pair) ?? []),
+            ...combineWithOtherAirports(outbound, otherReturns),
+        ].sort(byPrice).slice(0, perPairLimit);
+        yield { type: 'results', pair, results, final: true };
+    }
 }
 
 /** Flight numbers for the cheapest results (month fares don't include them). */

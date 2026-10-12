@@ -26,6 +26,12 @@ direct one when different). It asks Ryanair for every destination from the origi
 from each of those airports, on each day. For round trips, return flights are looked up for the 40 cheapest
 destinations. Limits: up to 5 origin airports and 15 origin × day combinations.
 
+**Different airports on the way back**: when you select several airports (e.g. all of London), a round trip
+can fly back from another airport in the same city (out to Stansted, back from Luton), and land at another of
+your home airports within 200 km (out of Vilnius, back to Kaunas). Same-city airport groups and transfer
+times are in `lib/mixedAirports.ts`. These trips are badged, never "booked as one trip", and hidden by the
+"Same airport only" filter. They need no extra requests to Ryanair.
+
 Ryanair's public fare API returns only the **cheapest flight per route per day**, so a connection that would
 need a more expensive flight on one leg can be missed.
 
@@ -51,6 +57,7 @@ bookmarked, and Back/Forward work. The last 5 searches are remembered in the bro
 | `lib/search.ts` | Validates search input, expands flexible dates, builds round trips |
 | `lib/time.ts` | Local time ↔ UTC conversion and date helpers |
 | `lib/anywhere.ts` | "Anywhere" search: cheapest destinations from an airport |
+| `lib/mixedAirports.ts` | Airports in the same city, transfer times, and which return airports are allowed |
 | `lib/calendar.ts` | Cheapest price per day for a month (the price calendar) |
 | `lib/events.ts` | Messages streamed from the search API to the page |
 | `lib/airportGroups.ts` | City / region / country groupings for the airport picker |
