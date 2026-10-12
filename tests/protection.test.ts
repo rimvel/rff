@@ -78,3 +78,34 @@ describe('when Ryanair refuses requests', () => {
         expect(events.map(e => e.type)).toEqual(['results', 'complete']);
     });
 });
+
+describe('health check', () => {
+    beforeEach(() => vi.resetModules());
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('reports ok with no problems', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ outbound: { fares: [] } }), { status: 200 })));
+        const { getMonthFares } = await import('../lib/ryanair');
+        await getMonthFares('VNO', 'STN', '2026-11');
+        const { GET } = await import('../app/api/health/route');
+        const res = await GET();
+        const body = await res.json();
+        expect(res.status).toBe(200);
+        expect(body.status).toBe('ok');
+        expect(body.ryanair.sinceStart).toEqual({ requests: 1, failures: 0 });
+        expect(body.ryanair.lastSuccessAt).not.toBeNull();
+    });
+
+    it('reports when Ryanair refuses requests, with the status code, and answers 503', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response('Forbidden', { status: 403 })));
+        const { getMonthFares } = await import('../lib/ryanair');
+        await getMonthFares('VNO', 'STN', '2026-11');
+        const { GET } = await import('../app/api/health/route');
+        const res = await GET();
+        const body = await res.json();
+        expect(res.status).toBe(503);
+        expect(body.status).toBe('paused');
+        expect(body.ryanair.paused).toBe(true);
+        expect(body.ryanair.lastFailure).toMatchObject({ status: 403, reason: 'refused' });
+    });
+});

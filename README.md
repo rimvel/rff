@@ -94,6 +94,7 @@ try again" and a Try again button.
 | `app/api/search` | Streams results as newline-separated JSON (see `lib/events.ts`). `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
 | `app/api/calendar` | `GET /api/calendar?origin=VNO&dest=BCN&month=2026-11` → cheapest price per day |
 | `app/api/calendar/grid` | `GET /api/calendar/grid?origin=VNO&dest=STN&date=2026-11-06&returnDate=2026-11-09` → round-trip prices, ±3 days × ±3 days |
+| `app/api/health` | Version, uptime and recent Ryanair request status (never calls Ryanair; 503 while paused) |
 | `app/api/airports` | List of active Ryanair airports (cached 24h) |
 | `components/` | Search form, airport picker, results |
 | `tests/` | Unit tests (Vitest) |
@@ -120,6 +121,16 @@ npm run typecheck
 Shared links show a title, description and image (Open Graph / Twitter cards). A shared search gets its own
 title, e.g. "Vilnius → Barcelona · 20 Nov | RFF". Preview links use `https://rffapp.azurewebsites.net`;
 set the `SITE_URL` environment variable if the site moves to another address.
+
+### Health check and logs
+
+`GET /api/health` shows the live version (commit), when the server started, and how requests to Ryanair are
+going: requests and failures in the last 30 s and since start, the last failure (with status code), and whether
+requests are paused. It answers 503 while paused, so it can be used with an uptime monitor.
+
+Container logging is on in Azure (`az webapp log config --docker-container-logging filesystem`, kept 3 days);
+download with `az webapp log download --name rffapp --resource-group RG-Azure-RVE-RFF`. The app logs failed
+Ryanair requests and when it pauses them.
 
 ## Deployment
 
