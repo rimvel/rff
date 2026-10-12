@@ -90,3 +90,69 @@ describe('round trip search with several airports', () => {
             .toEqual(['STN->back from LTN: €90', 'STN->back from STN: €130']);
     });
 });
+
+describe('changing airports during a connection', () => {
+    const arriveStansted = flight('VNO', 'STN', '2026-11-09T06:15:00', '2026-11-09T07:05:00', 20);
+    const fromLuton = (dep: string) => flight('LTN', 'LIS', dep, '2026-11-09T22:00:00', 40);
+
+    it('needs 2 h plus the transfer time between the airports', async () => {
+        const { layoverResult } = await import('../lib/finder');
+        // Stansted -> Luton takes ~1 h 45 min, so at least 3 h 45 min between flights
+        expect(layoverResult(arriveStansted, fromLuton('2026-11-09T10:30:00'), '2026-11-09', new Map())).toBeNull();
+        const ok = layoverResult(arriveStansted, fromLuton('2026-11-09T11:00:00'), '2026-11-09', new Map());
+        expect(ok?.via).toBe('STN');
+        expect(ok?.flights.map(f => `${f.origin}-${f.destination}`)).toEqual(['VNO-STN', 'LTN-LIS']);
+        expect(ok?.totalPrice).toBe(60);
+    });
+
+    it('never connects airports in different cities', async () => {
+        const { layoverResult } = await import('../lib/finder');
+        const fromBarcelona = flight('BCN', 'LIS', '2026-11-09T12:00:00', '2026-11-09T14:00:00', 10);
+        expect(layoverResult(arriveStansted, fromBarcelona, '2026-11-09', new Map())).toBeNull();
+    });
+
+    it('counts the transfer when deciding if a connection is tight', async () => {
+        const { layoverBadges } = await import('../lib/layoverRisk');
+        // 4 h between flights, but 1 h 45 min of it is getting to Luton
+        expect(layoverBadges(arriveStansted, fromLuton('2026-11-09T11:05:00')).map(b => b.kind)).toEqual(['tight']);
+        expect(layoverBadges(arriveStansted, fromLuton('2026-11-09T12:30:00')).map(b => b.kind)).toEqual([]);
+    });
+
+    it('is hidden by the "Same airport only" filter', async () => {
+        const { layoverResult } = await import('../lib/finder');
+        const trip = layoverResult(arriveStansted, fromLuton('2026-11-09T12:00:00'), '2026-11-09', new Map())!;
+        expect(usesOtherAirports(trip)).toBe(true);
+        expect(applyView([trip], { ...DEFAULT_VIEW, sameAirport: true })).toEqual([]);
+    });
+});
+
+describe('one-stop search with airport changes', () => {
+    const ROUTES: Record<string, string[]> = { VNO: ['STN'], LIS: ['LTN'] };
+    const FLIGHTS: Record<string, [string, string, number]> = {
+        'VNO-STN': ['2026-11-09T06:15:00', '2026-11-09T07:05:00', 20],
+        'LTN-LIS': ['2026-11-09T12:00:00', '2026-11-09T14:45:00', 40],
+    };
+    function fakeFetch(url: string) {
+        const json = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+        const routes = url.match(/routes\/en\/airport\/([A-Z]{3})/);
+        if (routes) return json((ROUTES[routes[1]] ?? []).map(code => ({ arrivalAirport: { code } })));
+        const m = url.match(/oneWayFares\/([A-Z]{3})\/([A-Z]{3})\/cheapestPerDay/);
+        if (m) {
+            const f = FLIGHTS[`${m[1]}-${m[2]}`];
+            return json({ outbound: { fares: f ? [{ day: f[0].slice(0, 10), departureDate: f[0], arrivalDate: f[1], price: { value: f[2], currencyCode: 'EUR' }, soldOut: false, unavailable: false }] : [] } });
+        }
+        return json([]);
+    }
+    beforeEach(() => {
+        vi.resetModules();
+        vi.stubGlobal('fetch', vi.fn(fakeFetch));
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('finds Vilnius -> Stansted, Luton -> Lisbon when no airport is shared', async () => {
+        const { findOneStop } = await import('../lib/finder');
+        const results = await findOneStop('VNO', 'LIS', ['2026-11-09']);
+        expect(results.map(r => r.flights.map(f => `${f.origin}-${f.destination}`).join(' + '))).toEqual(['VNO-STN + LTN-LIS']);
+        expect(await findOneStop('VNO', 'LIS', ['2026-11-09'], new Map(), false)).toEqual([]);
+    });
+});

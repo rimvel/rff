@@ -1,6 +1,7 @@
 // How risky or uncomfortable a self-transfer connection is.
 
 import { formatDuration } from './format';
+import { transferMinutes } from './mixedAirports';
 import { minutesAtSamePlace } from './time';
 import { Flight } from './types';
 
@@ -19,8 +20,10 @@ export function layoverMinutes(arriving: Flight, departing: Flight): number {
 
 export function layoverBadges(arriving: Flight, departing: Flight): LayoverBadge[] {
     const wait = layoverMinutes(arriving, departing);
+    // Time spent getting to another airport doesn't count as spare time
+    const transfer = transferMinutes(arriving.destination, departing.origin) ?? 0;
     const badges: LayoverBadge[] = [];
-    if (wait < TIGHT_LAYOVER_MINUTES) {
+    if (wait < TIGHT_LAYOVER_MINUTES + transfer) {
         badges.push({
             kind: 'tight',
             label: `Tight: ${formatDuration(wait)}`,

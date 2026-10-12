@@ -26,6 +26,11 @@ direct one when different). It asks Ryanair for every destination from the origi
 from each of those airports, on each day. For round trips, return flights are looked up for the 40 cheapest
 destinations. Limits: up to 5 origin airports and 15 origin × day combinations.
 
+**Changing airports during a connection**: one-stop trips can also land at one airport and fly on from another
+in the same city (e.g. Vilnius → Luton, coach to Stansted, Stansted → Lisbon). The minimum time between flights
+is then 2 h plus the transfer time. These are badged "Airport change" and hidden by "Same airport only". They
+cost a few extra requests per search (about 5–20%). Not yet used for "Anywhere" or the price calendar.
+
 **Different airports on the way back**: when you select several airports (e.g. all of London), a round trip
 can fly back from another airport in the same city (out to Stansted, back from Luton), and land at another of
 your home airports within 200 km (out of Vilnius, back to Kaunas). Same-city airport groups and transfer

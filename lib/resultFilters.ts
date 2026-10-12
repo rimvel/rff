@@ -30,10 +30,15 @@ export function otherAirportsBack(result: SearchResult): { from: boolean; to: bo
     return { from: ret.origin !== result.destination, to: ret.destination !== result.origin };
 }
 
+/** Whether a connection lands at one airport and leaves from another. */
+export function changesAirportsMidway(leg: RouteResult): boolean {
+    return leg.flights.some((f, i) => i > 0 && leg.flights[i - 1].destination !== f.origin);
+}
+
 /** Whether the trip involves getting from one airport to another (as opposed to always the same airport). */
 export function usesOtherAirports(result: SearchResult): boolean {
     const back = otherAirportsBack(result);
-    return back.from || back.to;
+    return back.from || back.to || legs(result).some(changesAirportsMidway);
 }
 
 export function isAllDirect(result: SearchResult): boolean {
