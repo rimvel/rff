@@ -39,14 +39,17 @@ export default function PriceCalendar({ request, onPickDate }: PriceCalendarProp
     useEffect(() => {
         if (!open) return;
         const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000); // don't show "Loading prices..." forever
         const params = new URLSearchParams({ origin: request.origin, dest: request.dest, month });
         fetch(`/api/calendar?${params}`, { signal: controller.signal })
             .then(res => (res.ok ? res.json() : null))
             .then((data: Calendar | null) => setLoaded({ month, calendar: data }))
-            .catch(() => {
-                if (!controller.signal.aborted) setLoaded({ month, calendar: null });
-            });
-        return () => controller.abort();
+            .catch(() => setLoaded({ month, calendar: null }))
+            .finally(() => clearTimeout(timeout));
+        return () => {
+            clearTimeout(timeout);
+            controller.abort();
+        };
     }, [request.origin, request.dest, month, open]);
 
     const searched = new Set(expandDates(request.date, request.departureDateRange ?? 0, request.departureDateDirection ?? 'both'));

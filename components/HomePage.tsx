@@ -20,8 +20,14 @@ interface SearchOutcome {
   byPair: Record<string, SearchResult[]>; // results arrive per airport pair
   flightNumbers: Record<string, string>;
   complete: boolean;
+  interrupted: boolean; // stopped early; results may be missing
   error: string | null;
 }
+
+// If the server sends nothing for this long, the search is treated as interrupted
+// (e.g. the connection was cut while the site was being updated)
+const NO_RESPONSE_LIMIT_MS = 60_000;
+const INTERRUPTED = 'The search was interrupted, please try again.';
 
 export default function HomePage() {
   // The search lives in the page address, so it can be shared and Back/Forward work
@@ -57,29 +63,54 @@ export default function HomePage() {
     const req = readSearch(new URLSearchParams(key));
     if (!req) return;
     const controller = new AbortController();
-    const update = (change: (o: SearchOutcome) => Partial<SearchOutcome>) =>
+    const update = (change: (o: SearchOutcome) => Partial<SearchOutcome>) => {
+      if (controller.signal.aborted) return; // a newer search has started
       setOutcome(o => {
-        if (controller.signal.aborted) return o; // a newer search has started
-        const base = o?.key === runId ? o : { key: runId, byPair: {}, flightNumbers: {}, complete: false, error: null };
+        const base = o?.key === runId ? o : { key: runId, byPair: {}, flightNumbers: {}, complete: false, interrupted: false, error: null };
         return { ...base, ...change(base) };
       });
+    };
+
+    // Give up when nothing arrives for a while, instead of showing "Searching..." forever
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    let searching = true;
+    const giveUp = () => {
+      update(o => (Object.keys(o.byPair).length > 0 ? { complete: true, interrupted: true } : { error: INTERRUPTED }));
+      controller.abort();
+    };
+    const stillAlive = () => {
+      clearTimeout(watchdog);
+      if (searching) watchdog = setTimeout(giveUp, NO_RESPONSE_LIMIT_MS);
+    };
+    const done = () => {
+      searching = false;
+      clearTimeout(watchdog);
+    };
+    stillAlive();
 
     fetch(toApiUrl(req), { signal: controller.signal })
       .then(async res => {
         if (!res.ok) {
           const data = await res.json().catch(() => null);
+          done();
           update(() => ({ error: data?.error ?? 'Search failed. Please try again.' }));
           return;
         }
         await readEvents(res, event => {
+          stillAlive();
           if (event.type === 'results') update(o => ({ byPair: { ...o.byPair, [event.pair]: event.results } }));
-          else if (event.type === 'complete') update(() => ({ complete: true }));
+          else if (event.type === 'complete') {
+            done(); // flight numbers may still follow, but the search itself is finished
+            update(() => ({ complete: true }));
+          }
           else if (event.type === 'flightNumbers') update(o => ({ flightNumbers: { ...o.flightNumbers, ...event.numbers } }));
           else if (event.type === 'error') update(() => ({ error: event.error }));
         });
+        done();
         update(() => ({ complete: true })); // in case the stream ended early
       })
       .catch(err => {
+        done();
         if (controller.signal.aborted) return;
         console.error('Search failed:', err);
         update(o => (Object.keys(o.byPair).length > 0
@@ -87,7 +118,10 @@ export default function HomePage() {
           : { error: 'Could not reach the server. Check your connection and try again.' }));
       });
 
-    return () => controller.abort();
+    return () => {
+      done();
+      controller.abort();
+    };
   }, [key, runId]);
 
   // Remember searches once airport names are known, so the list can show them
@@ -170,6 +204,20 @@ export default function HomePage() {
         {!isLoading && !isStale && current?.error && (
           <div className="no-results">
             <p>{current.error}</p>
+            <div className="suggestions">
+              <button type="button" className="suggestion-btn" onClick={() => setSearchCount(n => n + 1)}>
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isStale && current?.interrupted && (
+          <div className="searching-more" role="status">
+            The search was interrupted, so some options may be missing.
+            <button type="button" className="inline-retry" onClick={() => setSearchCount(n => n + 1)}>
+              Try again
+            </button>
           </div>
         )}
 
