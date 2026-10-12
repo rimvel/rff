@@ -53,6 +53,10 @@ in the browser. The search, sorting and filters are kept in the page address, so
 `/?from=VNO&to=BCN,GRO,REU&date=2026-11-13&return=2026-11-20&returnFlex=2&sort=fastest` can be shared or
 bookmarked, and Back/Forward work. The last 5 searches are remembered in the browser (localStorage).
 
+**Date grid**: for round trips, the price calendar opens on a grid of departure days (±3) × return days (±3)
+with the cheapest round trip in each cell (two one-way fares, paired by the same airport rules as the search).
+Clicking a cell searches those dates. The "Month (outbound)" tab shows the one-way month view.
+
 **Saved routes**: "☆ Save route" next to the results title keeps the route (not the dates) in the browser.
 Saved routes appear above the recent searches; clicking one searches it on the dates being looked at (or
 tomorrow), keeping a round trip's length.
@@ -84,6 +88,7 @@ try again" and a Try again button.
 | `lib/recentSearches.ts` | Recent searches stored in the browser |
 | `app/api/search` | Streams results as newline-separated JSON (see `lib/events.ts`). `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
 | `app/api/calendar` | `GET /api/calendar?origin=VNO&dest=BCN&month=2026-11` → cheapest price per day |
+| `app/api/calendar/grid` | `GET /api/calendar/grid?origin=VNO&dest=STN&date=2026-11-06&returnDate=2026-11-09` → round-trip prices, ±3 days × ±3 days |
 | `app/api/airports` | List of active Ryanair airports (cached 24h) |
 | `components/` | Search form, airport picker, results |
 | `tests/` | Unit tests (Vitest) |

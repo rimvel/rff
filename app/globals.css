@@ -1767,3 +1767,118 @@ html {
 .saved-chip-remove:hover {
   opacity: 1;
 }
+
+/* Round-trip date grid (inside the price calendar) */
+.cal-tabs {
+  margin-top: 0.75rem;
+  min-width: 0;
+  width: fit-content;
+}
+
+.date-grid-scroll {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.date-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.date-grid th {
+  font-weight: 600;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
+  opacity: 0.75;
+  white-space: nowrap;
+  padding: 0.25rem;
+}
+
+.date-grid th.dg-current {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.dg-weekday {
+  display: block;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.dg-corner {
+  font-weight: 400 !important;
+  font-size: 0.6875rem !important;
+}
+
+.dg-corner span {
+  display: block;
+}
+
+.dg-cell {
+  width: 100%;
+  min-width: 3rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.5rem;
+  border: 2px solid transparent;
+  background: rgba(14, 165, 233, 0.06);
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.dg-cell:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.16);
+}
+
+.dg-cheap {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.dg-selected {
+  border-color: var(--primary);
+}
+
+.dg-empty {
+  background: transparent;
+  opacity: 0.35;
+  cursor: default;
+}
+
+[data-theme="dark"] .dg-cheap {
+  color: #34d399;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dg-cheap {
+    color: #34d399;
+  }
+}
+
+@media (max-width: 768px) {
+  .date-grid {
+    border-spacing: 1px;
+  }
+
+  .dg-cell {
+    min-width: 0;
+    padding: 0.375rem 0;
+    border-width: 1.5px;
+    border-radius: 0.375rem;
+    font-size: 0.6875rem;
+  }
+
+  .date-grid th {
+    font-size: 0.625rem;
+    padding: 0.125rem 0;
+  }
+
+  .dg-corner {
+    font-size: 0.5625rem !important;
+  }
+}

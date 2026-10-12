@@ -5,6 +5,7 @@ import type { PriceCalendar as Calendar } from '@/lib/calendar';
 import { SearchRequest } from '@/lib/searchUrl';
 import { expandDates, localToUtcMs } from '@/lib/time';
 import { useToday } from '@/lib/useUrl';
+import DateGrid from './DateGrid';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -25,19 +26,25 @@ function weekday(date: string): number {
 
 interface PriceCalendarProps {
     request: SearchRequest;
+    /** Month view: search from this departure date (a round trip keeps its length) */
     onPickDate: (date: string) => void;
+    /** Date grid (round trips): search exactly these dates */
+    onPickDates: (date: string, returnDate: string) => void;
 }
 
-export default function PriceCalendar({ request, onPickDate }: PriceCalendarProps) {
+export default function PriceCalendar({ request, onPickDate, onPickDates }: PriceCalendarProps) {
     const today = useToday();
     // Starts collapsed so the results come first; prices are only fetched once it's opened
     const [open, setOpen] = useState(false);
+    // Round trips start on the date grid; the month view shows one-way outbound prices
+    const [mode, setMode] = useState<'grid' | 'month'>(request.returnDate ? 'grid' : 'month');
+    const showGrid = mode === 'grid' && !!request.returnDate;
     const [month, setMonth] = useState(request.date.slice(0, 7));
     const [loaded, setLoaded] = useState<{ month: string; calendar: Calendar | null } | null>(null);
     const calendar = loaded?.month === month ? loaded.calendar : undefined; // undefined while loading
 
     useEffect(() => {
-        if (!open) return;
+        if (!open || showGrid) return;
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 30_000); // don't show "Loading prices..." forever
         const params = new URLSearchParams({ origin: request.origin, dest: request.dest, month });
@@ -50,7 +57,7 @@ export default function PriceCalendar({ request, onPickDate }: PriceCalendarProp
             clearTimeout(timeout);
             controller.abort();
         };
-    }, [request.origin, request.dest, month, open]);
+    }, [request.origin, request.dest, month, open, showGrid]);
 
     const searched = new Set(expandDates(request.date, request.departureDateRange ?? 0, request.departureDateDirection ?? 'both'));
     // Highlight roughly the cheapest quarter of days
@@ -67,7 +74,7 @@ export default function PriceCalendar({ request, onPickDate }: PriceCalendarProp
                 <button type="button" className="cal-title" aria-expanded={open} onClick={() => setOpen(!open)}>
                     📅 Price calendar <span className="cal-chevron">{open ? '▾' : '▸'}</span>
                 </button>
-                {open && (
+                {open && !showGrid && (
                     <div className="cal-nav">
                         <button
                             type="button"
@@ -85,7 +92,22 @@ export default function PriceCalendar({ request, onPickDate }: PriceCalendarProp
                 )}
             </div>
 
-            {open && (
+            {open && request.returnDate && (
+                <div className="toggle-group cal-tabs" role="tablist" aria-label="Calendar view">
+                    <button type="button" role="tab" aria-selected={showGrid} className={`toggle-btn ${showGrid ? 'active' : ''}`} onClick={() => setMode('grid')}>
+                        Date grid
+                    </button>
+                    <button type="button" role="tab" aria-selected={!showGrid} className={`toggle-btn ${!showGrid ? 'active' : ''}`} onClick={() => setMode('month')}>
+                        Month (outbound)
+                    </button>
+                </div>
+            )}
+
+            {open && showGrid && request.returnDate && (
+                <DateGrid request={{ ...request, returnDate: request.returnDate }} onPick={onPickDates} />
+            )}
+
+            {open && !showGrid && (
                 <>
                     <div className="cal-grid">
                         {WEEKDAYS.map(d => <div key={d} className="cal-weekday">{d}</div>)}

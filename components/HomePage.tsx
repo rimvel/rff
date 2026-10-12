@@ -204,7 +204,9 @@ export default function HomePage() {
           <PriceCalendar
             key={`${request.origin}|${request.dest}|${request.date.slice(0, 7)}`}
             request={request}
-            onPickDate={date => setQueryString(toPageParams(moveTrip(request, date)))} />
+            onPickDate={date => setQueryString(toPageParams(moveTrip(request, date)))}
+            onPickDates={(date, returnDate) => setQueryString(toPageParams({ ...request, date, returnDate }))}
+          />
         )}
 
         {!isLoading && !isStale && current?.error && (
