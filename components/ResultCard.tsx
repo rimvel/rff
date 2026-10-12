@@ -19,7 +19,9 @@ function roundTripBookingUrl(origin: string, destination: string, departureOut: 
 }
 
 function stopsLabel(leg: RouteResult): string {
-    return leg.type === 'direct' ? 'Direct' : `1 stop · ${leg.via}`;
+    if (leg.type === 'direct') return 'Direct';
+    const [first, second] = leg.flights;
+    return first.destination === second.origin ? `1 stop · ${leg.via}` : `1 stop · ${first.destination}→${second.origin}`;
 }
 
 const SELF_TRANSFER_HELP =
@@ -72,9 +74,19 @@ function Timeline({ leg, placeName }: { leg: RouteResult; placeName: (code: stri
                             <li className="tl-layover">
                                 <span className="tl-line dashed" aria-hidden="true" />
                                 <span className="tl-layover-text">
-                                    {formatDuration(layoverMinutes(flight, next))} layover in {placeName(flight.destination)}
+                                    {flight.destination === next.origin
+                                        ? `${formatDuration(layoverMinutes(flight, next))} layover in ${placeName(flight.destination)}`
+                                        : `${formatDuration(layoverMinutes(flight, next))} to change from ${placeName(flight.destination)} to ${placeName(next.origin)}`}
                                 </span>
                                 <span className="tl-badges">
+                                    {flight.destination !== next.origin && (
+                                        <span
+                                            className="risk-badge other-airport"
+                                            title={`Collect your bags at ${placeName(flight.destination)} and travel to ${placeName(next.origin)}: about ${formatDuration(transferMinutes(flight.destination, next.origin) ?? 0)} by coach or public transport. Then check in again.`}
+                                        >
+                                            Airport change · ~{formatDuration(transferMinutes(flight.destination, next.origin) ?? 0)} transfer
+                                        </span>
+                                    )}
                                     {layoverBadges(flight, next).map(b => (
                                         <span key={b.kind} className={`risk-badge ${b.kind}`} title={b.explanation}>{b.label}</span>
                                     ))}

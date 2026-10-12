@@ -43,10 +43,16 @@ export function directResult(flight: Flight, searchDate: string, timeZones: Map<
     };
 }
 
-/** One-stop trip if the connection time works, otherwise null. */
+/**
+ * One-stop trip if the connection time works, otherwise null. The second flight may leave from another
+ * airport in the same city (e.g. land at Stansted, fly on from Luton); then the time to get there is added
+ * to the minimum connection time.
+ */
 export function layoverResult(first: Flight, second: Flight, searchDate: string, timeZones: Map<string, string>): SearchResult | null {
+    const transfer = transferMinutes(first.destination, second.origin);
+    if (transfer === undefined) return null; // not the same airport or city
     const wait = connectionMinutes(first, second);
-    if (wait < MIN_CONNECTION_MINUTES || wait > MAX_CONNECTION_MINUTES) return null;
+    if (wait < MIN_CONNECTION_MINUTES + transfer || wait > MAX_CONNECTION_MINUTES) return null;
     return {
         type: 'layover',
         origin: first.origin,
@@ -73,15 +79,37 @@ export async function findHubs(origin: string, dest: string): Promise<string[]> 
     return fromOrigin.filter(hub => toDest.has(hub) && hub !== origin && hub !== dest);
 }
 
-/** One-stop trips via every possible hub, on each of the dates. */
-export async function findOneStop(origin: string, dest: string, dates: string[], timeZones: Map<string, string> = new Map()): Promise<SearchResult[]> {
-    const hubs = await findHubs(origin, dest);
+/**
+ * Pairs of airports in the same city where the trip could land at one and leave from the other,
+ * e.g. VNO -> STN, then LTN -> LIS.
+ */
+export async function findAirportChanges(origin: string, dest: string): Promise<{ arrive: string; depart: string }[]> {
+    const [fromOrigin, fromDest] = await Promise.all([getRoutes(origin), getRoutes(dest)]);
+    const ends = new Set([origin, dest]);
+    return fromOrigin.flatMap(arrive => fromDest
+        .filter(depart => depart !== arrive && !ends.has(arrive) && !ends.has(depart) && transferMinutes(arrive, depart) !== undefined)
+        .map(depart => ({ arrive, depart })));
+}
+
+/**
+ * One-stop trips on each of the dates: via every airport both ends fly to, and, when `changeAirports`
+ * is on, also landing at one airport and flying on from another in the same city.
+ */
+export async function findOneStop(
+    origin: string,
+    dest: string,
+    dates: string[],
+    timeZones: Map<string, string> = new Map(),
+    changeAirports = true,
+): Promise<SearchResult[]> {
+    const [hubs, changes] = await Promise.all([findHubs(origin, dest), changeAirports ? findAirportChanges(origin, dest) : []]);
+    const connections = [...hubs.map(hub => ({ arrive: hub, depart: hub })), ...changes];
     // Outgoing requests are rate-limited globally in ryanair.ts, so run everything at once
-    const perHub = await Promise.all(hubs.map(hub => Promise.all(dates.map(async date => {
-        const [first, second] = await Promise.all([getDayFare(origin, hub, date), getDayFare(hub, dest, date)]);
+    const perConnection = await Promise.all(connections.map(({ arrive, depart }) => Promise.all(dates.map(async date => {
+        const [first, second] = await Promise.all([getDayFare(origin, arrive, date), getDayFare(depart, dest, date)]);
         return first && second ? layoverResult(first, second, date, timeZones) : null;
     }))));
-    return perHub.flat().filter((r): r is SearchResult => r !== null);
+    return perConnection.flat().filter((r): r is SearchResult => r !== null);
 }
 
 /** Direct and one-stop trips for one date, cheapest first. */
