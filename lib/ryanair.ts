@@ -122,6 +122,16 @@ export async function getAirports(): Promise<Airport[]> {
     return airportFetch;
 }
 
+/** Map of airport code -> position. Empty if airports can't be loaded. */
+export async function getCoordinates(): Promise<Map<string, { latitude: number; longitude: number }>> {
+    try {
+        const airports = await getAirports();
+        return new Map(airports.filter(a => a.coordinates).map(a => [a.code, a.coordinates!]));
+    } catch {
+        return new Map();
+    }
+}
+
 /** Map of airport code -> IANA time zone. Empty if airports can't be loaded. */
 export async function getTimeZones(): Promise<Map<string, string>> {
     try {

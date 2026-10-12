@@ -1,4 +1,5 @@
 import { getDayFare, getRoutes } from './ryanair';
+import { transferMinutes } from './mixedAirports';
 import { localToUtcMs, minutesAtSamePlace, minutesBetween } from './time';
 import { Flight, RouteResult, SearchResult } from './types';
 
@@ -109,6 +110,32 @@ export function combineRoundTrips(outbound: SearchResult[], returns: RouteResult
         const landed = localToUtcMs(out.flights[out.flights.length - 1].arrivalDate);
         return sortedReturns
             .filter(ret => localToUtcMs(ret.flights[0].departureDate) > landed)
+            .slice(0, RETURN_OPTIONS_PER_OUTBOUND)
+            .map(ret => ({
+                ...out,
+                isRoundTrip: true,
+                returnFlights: [ret],
+                totalPrice: round2(out.totalPrice + ret.totalPrice),
+            }));
+    });
+}
+
+/**
+ * Like combineRoundTrips, for returns that use a different airport: back from another airport in the same
+ * city, and/or to another home airport. Each outbound option gets its own cheapest few of these, so they
+ * never push out the same-airport options. Callers pass only returns that are allowed (see canComeBack).
+ */
+export function combineWithOtherAirports(outbound: SearchResult[], returns: RouteResult[]): SearchResult[] {
+    const sortedReturns = [...returns].sort((a, b) => a.totalPrice - b.totalPrice);
+
+    return outbound.flatMap(out => {
+        const arrival = out.flights[out.flights.length - 1];
+        const landed = localToUtcMs(arrival.arrivalDate);
+        // Allow time to get to the other airport (same city, so local times compare directly)
+        const readyFor = (ret: RouteResult) => landed + (transferMinutes(arrival.destination, ret.origin) ?? 0) * 60_000;
+        return sortedReturns
+            .filter(ret => ret.origin !== out.destination || ret.destination !== out.origin)
+            .filter(ret => localToUtcMs(ret.flights[0].departureDate) > readyFor(ret))
             .slice(0, RETURN_OPTIONS_PER_OUTBOUND)
             .map(ret => ({
                 ...out,

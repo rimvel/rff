@@ -23,6 +23,19 @@ export function longestLayoverMinutes(result: SearchResult): number {
     return longest;
 }
 
+/** Whether the return leaves from another airport than the outbound landed at, and/or lands at another home airport. */
+export function otherAirportsBack(result: SearchResult): { from: boolean; to: boolean } {
+    const ret = result.returnFlights?.[0];
+    if (!ret) return { from: false, to: false };
+    return { from: ret.origin !== result.destination, to: ret.destination !== result.origin };
+}
+
+/** Whether the trip involves getting from one airport to another (as opposed to always the same airport). */
+export function usesOtherAirports(result: SearchResult): boolean {
+    const back = otherAirportsBack(result);
+    return back.from || back.to;
+}
+
 export function isAllDirect(result: SearchResult): boolean {
     return legs(result).every(leg => leg.type === 'direct');
 }
@@ -46,6 +59,7 @@ export function applyView(results: SearchResult[], view: ResultView): SearchResu
     return results
         .filter(r =>
             (!view.directOnly || isAllDirect(r)) &&
+            (!view.sameAirport || !usesOtherAirports(r)) &&
             (!view.maxPrice || r.totalPrice <= view.maxPrice) &&
             (!view.maxLayoverHours || longestLayoverMinutes(r) <= view.maxLayoverHours * 60)
         )
