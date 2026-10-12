@@ -27,8 +27,20 @@ const recent: { at: number; ok: boolean }[] = [];
 /** Thrown instead of calling Ryanair while requests are paused. */
 export class RyanairUnavailableError extends Error {}
 
-function recordOutcome(ok: boolean) {
+// For /api/health: what happened recently, without calling Ryanair
+let lastSuccessAt = 0;
+let lastFailure: { at: number; status?: number; reason: string } | null = null;
+const totals = { requests: 0, failures: 0 };
+
+function recordOutcome(ok: boolean, failure?: { status?: number; reason: string }) {
     const now = Date.now();
+    totals.requests++;
+    if (ok) {
+        lastSuccessAt = now;
+    } else {
+        totals.failures++;
+        lastFailure = { at: now, status: failure?.status, reason: failure?.reason ?? 'failed' };
+    }
     recent.push({ at: now, ok });
     while (recent.length > 0 && recent[0].at < now - WINDOW_MS) recent.shift();
     const failures = recent.filter(r => !r.ok).length;
@@ -39,6 +51,32 @@ function recordOutcome(ok: boolean) {
 function pause(reason: string) {
     if (Date.now() >= pausedUntil) console.warn(`Pausing requests to Ryanair for ${PAUSE_MS / 1000}s: ${reason}`);
     pausedUntil = Date.now() + PAUSE_MS;
+}
+
+export interface RyanairStatus {
+    paused: boolean;
+    pausedUntil: string | null;
+    unavailable: boolean; // refusing or failing most recent requests
+    last30s: { requests: number; failures: number };
+    sinceStart: { requests: number; failures: number };
+    lastSuccessAt: string | null;
+    lastFailure: { at: string; status: number | null; reason: string } | null;
+}
+
+/** Recent state of requests to Ryanair (no request is made). */
+export function ryanairStatus(): RyanairStatus {
+    const now = Date.now();
+    const window = recent.filter(r => r.at >= now - WINDOW_MS);
+    const iso = (t: number) => (t > 0 ? new Date(t).toISOString() : null);
+    return {
+        paused: now < pausedUntil,
+        pausedUntil: now < pausedUntil ? iso(pausedUntil) : null,
+        unavailable: isRyanairUnavailable(),
+        last30s: { requests: window.length, failures: window.filter(r => !r.ok).length },
+        sinceStart: { ...totals },
+        lastSuccessAt: iso(lastSuccessAt),
+        lastFailure: lastFailure && { at: iso(lastFailure.at)!, status: lastFailure.status ?? null, reason: lastFailure.reason },
+    };
 }
 
 /** True when Ryanair is refusing or failing most requests, so empty results probably mean "couldn't ask". */
@@ -72,16 +110,17 @@ async function fetchJson(url: string): Promise<unknown> {
         try {
             res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
         } catch (e) {
-            recordOutcome(false);
+            recordOutcome(false, { reason: e instanceof Error ? `${e.name}: ${e.message}`.slice(0, 120) : 'network error' });
             throw e;
         }
         if (res.status === 403 || res.status === 429) {
-            recordOutcome(false);
+            recordOutcome(false, { status: res.status, reason: 'refused' });
             pause(`Ryanair answered ${res.status}`);
             throw new Error(`Ryanair API ${res.status} for ${url}`);
         }
         if (!res.ok) {
-            recordOutcome(res.status < 500); // e.g. 404 for an unknown route is a normal answer
+            // e.g. 404 for an unknown route is a normal answer
+            recordOutcome(res.status < 500, { status: res.status, reason: 'error response' });
             throw new Error(`Ryanair API ${res.status} for ${url}`);
         }
         try {
@@ -89,7 +128,7 @@ async function fetchJson(url: string): Promise<unknown> {
             recordOutcome(true);
             return data;
         } catch (e) {
-            recordOutcome(false); // e.g. an HTML "are you a robot?" page instead of data
+            recordOutcome(false, { status: res.status, reason: 'not JSON (maybe a bot check page)' }); // e.g. an HTML "are you a robot?" page
             throw e;
         }
     });
