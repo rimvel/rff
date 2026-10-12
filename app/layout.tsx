@@ -12,10 +12,12 @@ const description =
   "Find the cheapest flights, including one-stop connections you can't book as one trip. Flexible dates, price calendar and \"Anywhere\" search.";
 
 export const metadata: Metadata = {
-  // Absolute links in previews; set SITE_URL if the site moves
-  metadataBase: new URL(process.env.SITE_URL ?? "https://rffapp.azurewebsites.net"),
+  // Absolute links in previews and the canonical address; set SITE_URL if the site moves
+  metadataBase: new URL(process.env.SITE_URL ?? "https://rff.fvcloud.eu"),
   title,
   description,
+  // Search engines list rff.fvcloud.eu, not rffapp.azurewebsites.net
+  alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: "RFF",
