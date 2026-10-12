@@ -3,6 +3,7 @@
 import { Fragment } from 'react';
 import { formatDay, formatDuration, formatPrice, formatStay, formatTime } from '@/lib/format';
 import { layoverBadges, layoverMinutes } from '@/lib/layoverRisk';
+import { formatDayList, schoolBreakOn, timeOff } from '@/lib/lithuania';
 import { distanceKm, transferMinutes } from '@/lib/mixedAirports';
 import { isAllDirect, otherAirportsBack } from '@/lib/resultFilters';
 import { minutesAtSamePlace } from '@/lib/time';
@@ -126,6 +127,26 @@ function OtherHomeBadge({ outFrom, backTo, places }: { outFrom: string; backTo: 
     );
 }
 
+/** Leave days, school break and missed school for a round trip (Lithuanian calendar). */
+function TimeOffChips({ from, to }: { from: string; to: string }) {
+    const off = timeOff(from, to);
+    const leave = off.leaveDays.length;
+    const schoolBreak = schoolBreakOn(from) ?? schoolBreakOn(to);
+    return (
+        <span className="rc-timeoff">
+            <span className="time-chip" title={leave ? `Take ${formatDayList(off.leaveDays)}` : 'Only weekends and public holidays'}>
+                🗓 {off.days} days · {leave === 0 ? 'no leave needed' : `${leave} leave day${leave === 1 ? '' : 's'}`}
+            </span>
+            {schoolBreak && <span className="time-chip">{schoolBreak.name}</span>}
+            {off.schoolDays.length > 0 && (
+                <span className="time-chip school" title={`School days missed: ${formatDayList(off.schoolDays)}`}>
+                    Misses {off.schoolDays.length} school day{off.schoolDays.length === 1 ? '' : 's'}
+                </span>
+            )}
+        </span>
+    );
+}
+
 /** How the result card names and locates airports. */
 export interface Places {
     name: (code: string) => string; // "London Stansted"
@@ -183,6 +204,12 @@ export default function ResultCard({ result, places }: { result: SearchResult; p
                             <span>{formatDay(leg.flights[0].departureDate)} · {formatDuration(leg.duration)}</span>
                         </span>
                     ))}
+                    {ret && (
+                        <TimeOffChips
+                            from={result.flights[0].departureDate.slice(0, 10)}
+                            to={ret.flights[ret.flights.length - 1].arrivalDate.slice(0, 10)}
+                        />
+                    )}
                 </div>
                 <div className="rc-price">
                     {mainBookingUrl ? (

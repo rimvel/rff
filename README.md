@@ -62,6 +62,13 @@ bookmarked, and Back/Forward work. The last 5 searches are remembered in the bro
 with the cheapest round trip in each cell (two one-way fares, paired by the same airport rules as the search).
 Clicking a cell searches those dates. The "Month (outbound)" tab shows the one-way month view.
 
+**Holiday windows (Lithuania)**: a strip of upcoming long weekends and school breaks (e.g. "Christmas to New
+Year · 11 days off · 4 leave days"). Picking one searches those dates (or fills them into the form). Public
+holidays are calculated for any year (`lib/lithuania.ts`, incl. Easter); school breaks and the windows are data
+that need updating each school year. The price calendar marks public holidays and school breaks, the date grid
+shows leave days needed under each price (orange when a pupil would miss school), and round-trip results show
+their leave days and school break.
+
 **Saved routes**: "☆ Save route" next to the results title keeps the route (not the dates) in the browser.
 Saved routes appear above the recent searches; clicking one searches it on the dates being looked at (or
 tomorrow), keeping a round trip's length.
@@ -81,6 +88,7 @@ try again" and a Try again button.
 | `lib/search.ts` | Validates search input, expands flexible dates, builds round trips |
 | `lib/time.ts` | Local time ↔ UTC conversion and date helpers |
 | `lib/anywhere.ts` | "Anywhere" search: cheapest destinations from an airport |
+| `lib/lithuania.ts` | Lithuanian public holidays, school breaks, holiday windows, leave-day maths |
 | `lib/mixedAirports.ts` | Airports in the same city, transfer times, and which return airports are allowed |
 | `lib/calendar.ts` | Cheapest price per day for a month (the price calendar) |
 | `lib/events.ts` | Messages streamed from the search API to the page |
