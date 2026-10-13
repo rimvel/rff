@@ -1,5 +1,5 @@
 import { Airport, Flight } from './types';
-import { TtlCache, createLimiter } from './cache';
+import { TtlCache, createLimiter, isAbortError } from './cache';
 
 export type { Airport, Flight } from './types';
 
@@ -88,9 +88,9 @@ export function isRyanairUnavailable(): boolean {
     return failures >= 3 && failures >= window.length / 2;
 }
 
-/** Log a failed lookup, except the expected ones while paused. */
+/** Log a failed lookup, except the expected ones: while paused, or for a search that was abandoned. */
 function logFailure(message: string, e: unknown) {
-    if (!(e instanceof RyanairUnavailableError)) console.error(message, e);
+    if (!(e instanceof RyanairUnavailableError) && !isAbortError(e)) console.error(message, e);
 }
 
 const AIRPORT_CODE = /^[A-Z]{3}$/;
@@ -99,7 +99,11 @@ export function isAirportCode(code: string): boolean {
     return AIRPORT_CODE.test(code);
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+/**
+ * GET a Ryanair URL, waiting for a turn in the shared queue. With `signal`, the request is dropped if the
+ * search it's for is abandoned before its turn comes (a request already sent is left to finish and be cached).
+ */
+async function fetchJson(url: string, signal?: AbortSignal): Promise<unknown> {
     const checkPaused = () => {
         if (Date.now() < pausedUntil) throw new RyanairUnavailableError('Requests to Ryanair are paused');
     };
@@ -131,7 +135,7 @@ async function fetchJson(url: string): Promise<unknown> {
             recordOutcome(false, { status: res.status, reason: 'not JSON (maybe a bot check page)' }); // e.g. an HTML "are you a robot?" page
             throw e;
         }
-    });
+    }, signal);
 }
 
 // --- Airports (cached 24h, stale copy served if a refresh fails) ---
@@ -219,11 +223,11 @@ const monthCache = new TtlCache<Map<string, Flight>>(FARE_TTL);
  * Cheapest flight on each day of a month (`month` is "YYYY-MM"), in one request.
  * These fares have no flight number; see getFlightNumber().
  */
-export function getMonthFares(origin: string, dest: string, month: string): Promise<Map<string, Flight>> {
+export function getMonthFares(origin: string, dest: string, month: string, signal?: AbortSignal): Promise<Map<string, Flight>> {
     if (!isAirportCode(origin) || !isAirportCode(dest) || !/^\d{4}-\d{2}$/.test(month)) return Promise.resolve(new Map());
     return monthCache.get(`${origin}-${dest}-${month}`, async () => {
         const url = `${BASE_URL}/oneWayFares/${origin}/${dest}/cheapestPerDay?outboundMonthOfDate=${month}-01&currency=EUR`;
-        const data = (await fetchJson(url)) as MonthResponse;
+        const data = (await fetchJson(url, signal)) as MonthResponse;
         const days = new Map<string, Flight>();
         for (const f of data.outbound?.fares ?? []) {
             if (f.unavailable || f.soldOut || !f.price || !f.departureDate || !f.arrivalDate) continue;
@@ -236,20 +240,20 @@ export function getMonthFares(origin: string, dest: string, month: string): Prom
             });
         }
         return days;
-    }).catch(e => {
+    }, signal).catch(e => {
         logFailure(`Error fetching month fares ${origin}->${dest} ${month}`, e);
         return new Map();
     });
 }
 
 /** Cheapest flight on a day ("YYYY-MM-DD"), from the cached month. */
-export async function getDayFare(origin: string, dest: string, date: string): Promise<Flight | null> {
-    return (await getMonthFares(origin, dest, date.slice(0, 7))).get(date) ?? null;
+export async function getDayFare(origin: string, dest: string, date: string, signal?: AbortSignal): Promise<Flight | null> {
+    return (await getMonthFares(origin, dest, date.slice(0, 7), signal)).get(date) ?? null;
 }
 
 /** Flight number of a flight found via getMonthFares (looked up from that day's fare). */
-export async function getFlightNumber(flight: Flight): Promise<string | undefined> {
-    const day = await getOneWayFares(flight.origin, flight.destination, flight.departureDate.slice(0, 10));
+export async function getFlightNumber(flight: Flight, signal?: AbortSignal): Promise<string | undefined> {
+    const day = await getOneWayFares(flight.origin, flight.destination, flight.departureDate.slice(0, 10), signal);
     return day && day.departureDate === flight.departureDate ? day.flightNumber : undefined;
 }
 
@@ -270,7 +274,7 @@ const fareCache = new TtlCache<Flight | null>(FARE_TTL);
  * Cheapest one-way fare for a route on a given day.
  * Note: this Ryanair endpoint only returns the single cheapest flight per day.
  */
-export function getOneWayFares(origin: string, dest: string, date: string): Promise<Flight | null> {
+export function getOneWayFares(origin: string, dest: string, date: string, signal?: AbortSignal): Promise<Flight | null> {
     if (!isAirportCode(origin) || !isAirportCode(dest)) return Promise.resolve(null);
     const params = new URLSearchParams({
         departureAirportIataCode: origin,
@@ -280,7 +284,7 @@ export function getOneWayFares(origin: string, dest: string, date: string): Prom
         currency: 'EUR',
     });
     return fareCache.get(`${origin}-${dest}-${date}`, async () => {
-        const data = (await fetchJson(`${BASE_URL}/oneWayFares?${params}`)) as FareResponse;
+        const data = (await fetchJson(`${BASE_URL}/oneWayFares?${params}`, signal)) as FareResponse;
         const fare = data.fares?.[0]?.outbound;
         if (!fare) return null;
         return {
@@ -291,7 +295,7 @@ export function getOneWayFares(origin: string, dest: string, date: string): Prom
             price: { value: fare.price.value, currencyCode: fare.price.currencyCode },
             flightNumber: fare.flightNumber,
         };
-    }).catch(e => {
+    }, signal).catch(e => {
         logFailure(`Error fetching fares ${origin}->${dest}`, e);
         return null;
     });
@@ -314,7 +318,7 @@ interface AnywhereResponse {
 const anywhereCache = new TtlCache<Flight[]>(FARE_TTL);
 
 /** Cheapest flight to every destination from `origin` on `date`, in one request. */
-export function getAnywhere(origin: string, date: string): Promise<Flight[]> {
+export function getAnywhere(origin: string, date: string, signal?: AbortSignal): Promise<Flight[]> {
     if (!isAirportCode(origin)) return Promise.resolve([]);
     const params = new URLSearchParams({
         departureAirportIataCode: origin,
@@ -323,7 +327,7 @@ export function getAnywhere(origin: string, date: string): Promise<Flight[]> {
         currency: 'EUR',
     });
     return anywhereCache.get(`${origin}-${date}`, async () => {
-        const data = (await fetchJson(`${BASE_URL}/oneWayFares?${params}`)) as AnywhereResponse;
+        const data = (await fetchJson(`${BASE_URL}/oneWayFares?${params}`, signal)) as AnywhereResponse;
         return (data.fares ?? []).map(({ outbound: o }) => {
             const flight: Flight = {
                 origin,
@@ -337,7 +341,7 @@ export function getAnywhere(origin: string, date: string): Promise<Flight[]> {
             fareCache.set(`${origin}-${flight.destination}-${date}`, flight);
             return flight;
         });
-    }).catch(e => {
+    }, signal).catch(e => {
         logFailure(`Error fetching destinations from ${origin} on ${date}`, e);
         return [];
     });

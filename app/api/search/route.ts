@@ -30,15 +30,21 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // When the visitor leaves or starts another search, drop the Ryanair requests still queued for this one
+    const abandoned = new AbortController();
+    request.signal.addEventListener('abort', () => abandoned.abort(), { once: true });
+
     const encoder = new TextEncoder();
-    const events = streamSearch(parsed.params);
+    const events = streamSearch(parsed.params, abandoned.signal);
     const body = new ReadableStream<Uint8Array>({
         async pull(controller) {
             try {
                 const { value, done } = await events.next();
+                if (abandoned.signal.aborted) return; // nobody is reading any more
                 if (done) controller.close();
                 else controller.enqueue(encoder.encode(JSON.stringify(value) + '\n'));
             } catch (e) {
+                if (abandoned.signal.aborted) return;
                 console.error('Search error:', e);
                 const error: SearchEvent = { type: 'error', error: 'Something went wrong while searching. Please try again.' };
                 controller.enqueue(encoder.encode(JSON.stringify(error) + '\n'));
@@ -46,7 +52,8 @@ export async function GET(request: NextRequest) {
             }
         },
         async cancel() {
-            await events.return(undefined); // visitor left or started another search
+            abandoned.abort(); // visitor left or started another search
+            await events.return(undefined);
         },
     });
 

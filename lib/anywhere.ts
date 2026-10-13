@@ -32,14 +32,14 @@ export function bestPerDestination(results: SearchResult[]): SearchResult[] {
     return best.sort(byPrice);
 }
 
-export async function* searchAnywhere(p: SearchParams, timeZones: Map<string, string>): AsyncGenerator<SearchEvent> {
+export async function* searchAnywhere(p: SearchParams, timeZones: Map<string, string>, signal?: AbortSignal): AsyncGenerator<SearchEvent> {
     const outDates = expandDates(p.date, p.dateRangeDays, p.dateDirection);
     const origins = new Set(p.origins);
     const pair = 'anywhere';
 
     // 1. Every destination from each origin on each day (one request each); these are also the first legs
     const firstLegs: { date: string; flights: Flight[] }[] = await Promise.all(
-        p.origins.flatMap(origin => outDates.map(async date => ({ date, flights: await getAnywhere(origin, date) }))),
+        p.origins.flatMap(origin => outDates.map(async date => ({ date, flights: await getAnywhere(origin, date, signal) }))),
     );
     const outDirect = firstLegs.flatMap(({ date, flights }) =>
         flights.filter(f => !origins.has(f.destination)).map(f => directResult(f, date, timeZones)));
@@ -52,7 +52,7 @@ export async function* searchAnywhere(p: SearchParams, timeZones: Map<string, st
         for (const f of flights) hubDays.set(`${f.destination}|${date}`, { hub: f.destination, date });
     }
     const secondLegs = new Map<string, Flight[]>(); // by "hub|date"
-    await Promise.all([...hubDays].map(async ([key, { hub, date }]) => secondLegs.set(key, await getAnywhere(hub, date))));
+    await Promise.all([...hubDays].map(async ([key, { hub, date }]) => secondLegs.set(key, await getAnywhere(hub, date, signal))));
 
     const outOneStop: SearchResult[] = [];
     const hubsTo = new Map<string, Set<string>>(); // destination -> airports that fly there
@@ -83,7 +83,7 @@ export async function* searchAnywhere(p: SearchParams, timeZones: Map<string, st
     const outboundFor = (origin: string, dest: string) => outbound.filter(r => r.origin === origin && r.destination === dest);
     const directHubs = new Map([...origins].map(o => [o, new Set(firstLegs.flatMap(l => l.flights).filter(f => f.origin === o).map(f => f.destination))]));
 
-    const directReturns = await Promise.all(routes.map(({ origin, dest }) => findDirect(dest, origin, returnDates, timeZones)));
+    const directReturns = await Promise.all(routes.map(({ origin, dest }) => findDirect(dest, origin, returnDates, timeZones, signal)));
     yield {
         type: 'results',
         pair,
@@ -95,7 +95,7 @@ export async function* searchAnywhere(p: SearchParams, timeZones: Map<string, st
     const allReturns = await Promise.all(routes.map(async ({ origin, dest }, i) => {
         const hubs = [...(hubsTo.get(dest) ?? [])].filter(h => directHubs.get(origin)?.has(h));
         const oneStop = await Promise.all(hubs.flatMap(hub => returnDates.map(async date => {
-            const [first, second] = await Promise.all([getDayFare(dest, hub, date), getDayFare(hub, origin, date)]);
+            const [first, second] = await Promise.all([getDayFare(dest, hub, date, signal), getDayFare(hub, origin, date, signal)]);
             return first && second ? layoverResult(first, second, date, timeZones) : null;
         })));
         return [...directReturns[i], ...oneStop.filter((r): r is SearchResult => r !== null)];

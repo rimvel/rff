@@ -1,10 +1,10 @@
 # RFF — cheap flights, beyond direct
 
 Finds the cheapest Ryanair connections between two places, including **self-transfer trips with one stop**
-that Ryanair's own site won't offer. Search by airport, city, region (e.g. "Spain South") or whole country,
-with optional flexible dates and round trips.
+that Ryanair's own site won't offer. Search by airport, city, region (e.g. "Spain South"), a group such as
+"Canary Islands", "South of Europe" or "Ski & Alps", or a whole country, with optional flexible dates and round trips.
 
-Live at Azure Web App `rffapp`.
+Live at https://rff.fvcloud.eu (Azure Web App `rffapp`, also at https://rffapp.azurewebsites.net).
 
 > Unofficial: not affiliated with or endorsed by Ryanair DAC. Fares come from Ryanair's public website.
 
@@ -12,7 +12,7 @@ Live at Azure Web App `rffapp`.
 
 Fares come from Ryanair's "cheapest per day" endpoint, which returns a whole month for a route in one
 request, so flexible dates cost almost nothing extra. Results stream to the page as they're found: direct
-flights first (about 0.2 s), then connections. Flight numbers are looked up afterwards for the cheapest results.
+flights first (about 0.2 s), then connections. Flight numbers are looked up afterwards for the 20 cheapest results.
 
 1. **Direct flight**: the cheapest fare on the chosen day.
 2. **One stop**: every airport that both ends fly to is tried as a hub. A connection is kept if the wait
@@ -29,7 +29,7 @@ destinations. Limits: up to 5 origin airports and 15 origin × day combinations.
 **Changing airports during a connection**: one-stop trips can also land at one airport and fly on from another
 in the same city (e.g. Vilnius → Luton, coach to Stansted, Stansted → Lisbon). The minimum time between flights
 is then 2 h plus the transfer time. These are badged "Airport change" and hidden by "Same airport only". They
-cost a few extra requests per search (about 5–20%). Not yet used for "Anywhere" or the price calendar.
+cost a few extra requests per search (about 5–20%). The price calendar uses them too; "Anywhere" doesn't.
 
 **Different airports on the way back**: when you select several airports (e.g. all of London), a round trip
 can fly back from another airport in the same city (out to Stansted, back from Luton), and land at another of
@@ -56,13 +56,13 @@ airports (within 250 km), a one-way search or "Anywhere".
 Results can be sorted (cheapest, fastest, earliest) and filtered (direct only, maximum layover, maximum price)
 in the browser. The search, sorting and filters are kept in the page address, so a link such as
 `/?from=VNO&to=BCN,GRO,REU&date=2026-11-13&return=2026-11-20&returnFlex=2&sort=fastest` can be shared or
-bookmarked, and Back/Forward work. The last 5 searches are remembered in the browser (localStorage).
+bookmarked, and Back/Forward work. Recent searches are remembered in the browser (localStorage); the 3 latest are shown.
 
 **Date grid**: for round trips, the price calendar opens on a grid of departure days (±3) × return days (±3)
 with the cheapest round trip in each cell (two one-way fares, paired by the same airport rules as the search).
 Clicking a cell searches those dates. The "Month (outbound)" tab shows the one-way month view.
 
-**Holiday windows (Lithuania)**: a strip of upcoming long weekends and school breaks (e.g. "Christmas to New
+**Holiday windows (Lithuania)**: a strip (closed until you open it) of upcoming long weekends and school breaks (e.g. "Christmas to New
 Year · 11 days off · 4 leave days"). Picking one searches those dates (or fills them into the form). Public
 holidays are calculated for any year (`lib/lithuania.ts`, incl. Easter); school breaks and the windows are data
 that need updating each school year. The price calendar marks public holidays and school breaks, the date grid
@@ -111,6 +111,12 @@ try again" and a Try again button.
 
 To keep one search from sending thousands of requests to Ryanair, a search is limited to ±7 flexible days,
 40 airports per side, and 300 airport-pair × date combinations. Results are capped at the 200 cheapest; the page shows 50 at a time.
+The price calendar covers at most 100 airport pairs.
+
+All requests to Ryanair go through one queue (at most 6 at once, about 20 per second). When a visitor leaves or
+starts another search, the requests still queued for the old one are dropped. Per visitor (by IP address): 30
+searches a minute, 5 "Anywhere" searches per 10 minutes, and 40 calendar views a minute (a view for many airports
+counts as several: 1 more for every 10 airport pairs).
 
 ## Development
 
@@ -127,8 +133,8 @@ npm run typecheck
 ### Link previews
 
 Shared links show a title, description and image (Open Graph / Twitter cards). A shared search gets its own
-title, e.g. "Vilnius → Barcelona · 20 Nov | RFF". Preview links use `https://rffapp.azurewebsites.net`;
-set the `SITE_URL` environment variable if the site moves to another address.
+title, e.g. "Vilnius → Barcelona · 20 Nov | RFF". Preview links and the canonical address use
+`https://rff.fvcloud.eu`; set the `SITE_URL` environment variable if the site moves to another address.
 
 ### Health check and logs
 
@@ -143,10 +149,11 @@ Ryanair requests and when it pauses them.
 ## Deployment
 
 Every push to `main` runs lint, type check, tests and a security audit. If they pass, the app is built and
-deployed to Azure (`.github/workflows/main_rffapp.yml`). Pull requests run the same checks without deploying
-(`.github/workflows/checks.yml`).
+deployed to Azure (`.github/workflows/main_rffapp.yml`). Deploys run one at a time, and a run only succeeds once
+`/api/health` shows the new version (Azure can take a few minutes to switch). Pull requests run the same checks
+without deploying (`.github/workflows/checks.yml`).
 
-See `DEPLOY_TO_AZURE.md` and `AZURE_TROUBLESHOOTING.md` for Azure setup.
+See `AZURE.md` for how the Azure side is set up and what to check when something goes wrong.
 
 ### Rolling back
 

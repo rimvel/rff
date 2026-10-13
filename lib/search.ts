@@ -121,11 +121,13 @@ export function parseSearchParams(sp: URLSearchParams): ParseResult {
 
 const byPrice = (a: SearchResult, b: SearchResult) => a.totalPrice - b.totalPrice;
 
-/** Most flight numbers to look up after a search (each is one request to Ryanair). */
-const MAX_FLIGHT_NUMBER_LOOKUPS = 120;
+// Flight numbers are looked up after a search for the cheapest results only: each is one request to Ryanair,
+// and other searches wait behind them. Results without one still link to the booking page.
+const FLIGHT_NUMBER_RESULTS = 20;
+const MAX_FLIGHT_NUMBER_LOOKUPS = 40;
 
 /** Direct and one-stop trips for every origin/destination airport pair. */
-async function* searchPairs(p: SearchParams, timeZones: Map<string, string>): AsyncGenerator<SearchEvent> {
+async function* searchPairs(p: SearchParams, timeZones: Map<string, string>, signal?: AbortSignal): AsyncGenerator<SearchEvent> {
     const outDates = expandDates(p.date, p.dateRangeDays, p.dateDirection);
     const returnDates = p.returnDate ? expandDates(p.returnDate, p.returnDateRange, p.returnDateDirection) : [];
     const pairs = p.origins.flatMap(origin => p.dests.filter(dest => dest !== origin).map(dest => ({ origin, dest })));
@@ -144,8 +146,8 @@ async function* searchPairs(p: SearchParams, timeZones: Map<string, string>): As
         };
 
         // Start everything; direct flights need far fewer requests, so they arrive first
-        const outDirect = findDirect(origin, dest, outDates, timeZones);
-        const outOneStop = findOneStop(origin, dest, outDates, timeZones);
+        const outDirect = findDirect(origin, dest, outDates, timeZones, signal);
+        const outOneStop = findOneStop(origin, dest, outDates, timeZones, true, signal);
 
         if (!p.returnDate) {
             send(await outDirect, false);
@@ -153,8 +155,8 @@ async function* searchPairs(p: SearchParams, timeZones: Map<string, string>): As
             return;
         }
 
-        const retDirect = findDirect(dest, origin, returnDates, timeZones);
-        const retOneStop = findOneStop(dest, origin, returnDates, timeZones);
+        const retDirect = findDirect(dest, origin, returnDates, timeZones, signal);
+        const retOneStop = findOneStop(dest, origin, returnDates, timeZones, true, signal);
         send(combineRoundTrips(await outDirect, await retDirect), false);
         const outbound = [...(await outDirect), ...(await outOneStop)];
         const returns = [...(await retDirect), ...(await retOneStop)];
@@ -187,16 +189,16 @@ async function* searchPairs(p: SearchParams, timeZones: Map<string, string>): As
 }
 
 /** Flight numbers for the cheapest results (month fares don't include them). */
-async function lookUpFlightNumbers(results: SearchResult[]): Promise<Record<string, string>> {
+async function lookUpFlightNumbers(results: SearchResult[], signal?: AbortSignal): Promise<Record<string, string>> {
     const missing = new Map<string, Flight>();
-    for (const r of [...results].sort(byPrice).slice(0, MAX_RESULTS / 2)) {
+    for (const r of [...results].sort(byPrice).slice(0, FLIGHT_NUMBER_RESULTS)) {
         for (const f of [...r.flights, ...(r.returnFlights?.[0]?.flights ?? [])]) {
             if (!f.flightNumber && missing.size < MAX_FLIGHT_NUMBER_LOOKUPS) missing.set(flightKey(f), f);
         }
     }
     const numbers: Record<string, string> = {};
     await Promise.all([...missing].map(async ([key, f]) => {
-        const n = await getFlightNumber(f);
+        const n = await getFlightNumber(f, signal);
         if (n) numbers[key] = n;
     }));
     return numbers;
@@ -204,9 +206,10 @@ async function lookUpFlightNumbers(results: SearchResult[]): Promise<Record<stri
 
 /**
  * Search, sending results as they're found: direct flights first, then one-stop connections.
- * Afterwards, flight numbers are looked up for the cheapest results.
+ * Afterwards, flight numbers are looked up for the cheapest results. Abort `signal` when nobody is waiting for
+ * the results any more, so the Ryanair requests still queued for them are dropped.
  */
-export async function* streamSearch(p: SearchParams): AsyncGenerator<SearchEvent> {
+export async function* streamSearch(p: SearchParams, signal?: AbortSignal): AsyncGenerator<SearchEvent> {
     if (isRyanairUnavailable()) {
         yield { type: 'error', error: RYANAIR_UNAVAILABLE };
         return;
@@ -214,7 +217,7 @@ export async function* streamSearch(p: SearchParams): AsyncGenerator<SearchEvent
     const timeZones = await getTimeZones();
     const finalResults = new Map<string, SearchResult[]>();
 
-    for await (const event of p.anywhere ? searchAnywhere(p, timeZones) : searchPairs(p, timeZones)) {
+    for await (const event of p.anywhere ? searchAnywhere(p, timeZones, signal) : searchPairs(p, timeZones, signal)) {
         if (event.type === 'results' && event.final) finalResults.set(event.pair, event.results);
         yield event;
     }
@@ -225,7 +228,7 @@ export async function* streamSearch(p: SearchParams): AsyncGenerator<SearchEvent
     }
     yield { type: 'complete' };
 
-    const numbers = await lookUpFlightNumbers([...finalResults.values()].flat());
+    const numbers = await lookUpFlightNumbers([...finalResults.values()].flat(), signal);
     if (Object.keys(numbers).length > 0) yield { type: 'flightNumbers', numbers };
 }
 
