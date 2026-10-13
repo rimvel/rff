@@ -16,13 +16,16 @@ function describeDates(req: SearchRequest): string {
     return text;
 }
 
+// More are kept, so one whose dates have passed is replaced by an older one
+const SHOWN = 3;
+
 interface RecentSearchesProps {
     currentKey: string;
     onPick: (request: SearchRequest) => void;
 }
 
 export default function RecentSearches({ currentKey, onPick }: RecentSearchesProps) {
-    const recent = useRecentSearches().filter(r => searchKey(r.request) !== currentKey);
+    const recent = useRecentSearches().filter(r => searchKey(r.request) !== currentKey).slice(0, SHOWN);
     if (recent.length === 0) return null;
 
     return (
