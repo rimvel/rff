@@ -879,49 +879,74 @@ html {
   }
 }
 
-.theme-toggle-btn {
-  /* Position relative now as it's in the footer */
-  position: relative;
-  margin: 1rem auto 0;
-  /* Center it */
-  bottom: auto;
-  right: auto;
-  z-index: 10;
+/* Dark mode switch (footer): a small track with a sun and a moon; the knob slides to the active one */
+.theme-switch,
+.theme-switch-placeholder {
+  width: 3rem;
+  height: 1.5rem;
+  margin: 0.75rem auto 0;
+}
 
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--foreground);
-  width: 2.5rem;
-  /* Slightly smaller in footer */
-  height: 2.5rem;
-  border-radius: 50%;
+.theme-switch {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0 0.3125rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   cursor: pointer;
-  font-size: 1.1rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  filter: grayscale(100%);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-[data-theme="dark"] .theme-toggle-btn {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
+.theme-switch:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
-.theme-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+.theme-switch:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
 }
 
-[data-theme="dark"] .theme-toggle-btn:hover {
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
+.theme-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.5rem - 6px);
+  height: calc(1.5rem - 6px);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+}
+
+.theme-switch[aria-checked="true"] .theme-switch-knob {
+  transform: translateX(1.5rem);
+  background: #1e1b4b;
+}
+
+.theme-switch-icon {
+  position: relative; /* above the knob */
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s ease;
+}
+
+.theme-switch-icon.on {
+  color: #5161ce;
+}
+
+.theme-switch[aria-checked="true"] .theme-switch-icon.on {
+  color: #fde68a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-knob {
+    transition: none;
+  }
 }
 
 /* Price Links */
