@@ -5,19 +5,64 @@ import { Airport } from './types';
 export interface AirportGroup {
     kind: 'region' | 'city' | 'country';
     name: string;
-    countryCode: string;
+    countryCode: string; // '' for a group across several countries
     airportCodes: string[];
+    icon?: string; // shown instead of the flag, e.g. for a group across several countries
+    description?: string; // e.g. "Sunniest coasts and islands"
 }
 
-// Virtual regions built from Ryanair's region names
-const VIRTUAL_REGIONS = [
-    { name: 'Spain South', countryCode: 'es', match: ['Andalusia', 'Costa del Sol', 'Costa Calida', 'Costa Blanca'] },
-    { name: 'Spain North', countryCode: 'es', match: ['Galicia', 'Cantabria', 'Costa Brava', 'Costa Dorada', 'Costa Azahar', 'Aragon'] },
-    { name: 'Spain Islands', countryCode: 'es', match: ['Balearic Islands', 'Canary Isles'] },
-    { name: 'Italy North', countryCode: 'it', match: ['Lombardy', 'Veneto', 'Piedmont', 'Friuli-Venezia Giulia', 'Liguria', 'Emilia-Romagna', 'Tuscany'] },
-    { name: 'Italy South', countryCode: 'it', match: ['Campania', 'Puglia', 'Calabria', 'Sicily', 'Sardinia', 'Abruzzo', 'Lazio'] },
-    { name: 'Greece Islands', countryCode: 'gr', match: ['Greek Islands'] },
-    { name: 'Portugal Coast', countryCode: 'pt', match: ['Algarve', 'Lisbon'] },
+interface RegionDefinition {
+    name: string;
+    countryCode: string; // '' for a group across several countries
+    regions?: string[]; // Ryanair region names (within countryCode)
+    airports?: string[]; // airport codes; for airports Ryanair gives no useful region (e.g. "Default ES")
+    icon?: string;
+    description?: string;
+    // Other words that find the group. Not place names, so typing "Malta" still picks the airport, and not
+    // a country with no other group, so "France" + Enter still picks all of France
+    keywords?: string[];
+}
+
+// Groups of destinations: by Ryanair's region names and/or by airport code. Codes Ryanair
+// doesn't fly to (any more) are skipped. Keep groups to about 25 airports: each airport is a
+// separate search, and a search can have at most MAX_AIRPORTS_PER_SIDE.
+const VIRTUAL_REGIONS: RegionDefinition[] = [
+    { name: 'Spain South', countryCode: 'es', regions: ['Andalusia', 'Costa del Sol', 'Costa Calida', 'Costa Blanca'] },
+    { name: 'Spain North', countryCode: 'es', regions: ['Galicia', 'Cantabria', 'Costa Brava', 'Costa Dorada', 'Costa Azahar', 'Aragon'], airports: ['VIT'] },
+    { name: 'Spain Islands', countryCode: 'es', regions: ['Balearic Islands', 'Canary Isles'], airports: ['PMI'] },
+    { name: 'Canary Islands', countryCode: 'es', regions: ['Canary Isles'], keywords: ['canaries', 'spain'] },
+    { name: 'Balearic Islands', countryCode: 'es', regions: ['Balearic Islands'], airports: ['PMI'], keywords: ['spain'] },
+    { name: 'Italy North', countryCode: 'it', regions: ['Lombardy', 'Veneto', 'Piedmont', 'Friuli-Venezia Giulia', 'Liguria', 'Emilia-Romagna', 'Tuscany'], airports: ['RMI'] },
+    { name: 'Italy South', countryCode: 'it', regions: ['Campania', 'Puglia', 'Calabria', 'Sicily', 'Sardinia', 'Abruzzo', 'Lazio'], airports: ['OLB'] },
+    { name: 'Italian Islands', countryCode: 'it', regions: ['Sicily', 'Sardinia'], airports: ['OLB'], description: 'Sicily and Sardinia', keywords: ['italy'] },
+    { name: 'Greece Islands', countryCode: 'gr', regions: ['Greek Islands'] },
+    { name: 'Crete', countryCode: 'gr', airports: ['HER', 'CHQ'], keywords: ['greece'] },
+    { name: 'Portugal Coast', countryCode: 'pt', regions: ['Algarve', 'Lisbon'] },
+    { name: 'Croatia Coast', countryCode: 'hr', regions: ['Dalmatian', 'Kvarner Bay'], airports: ['DBV', 'PUY'] },
+    { name: 'South of France', countryCode: 'fr', regions: ['French Riviera', 'Languedoc-Roussillon', 'Corsica'] },
+    {
+        name: 'South of Europe',
+        countryCode: '',
+        icon: '☀️',
+        description: 'Sunniest coasts and islands',
+        // Warm for most of the year: Canaries, Andalusia and Costa Blanca, Algarve, Madeira, Sicily,
+        // Malta, Crete, Rhodes, Kos, Santorini, Cyprus
+        airports: [
+            'ACE', 'FUE', 'LPA', 'TFS', 'AGP', 'LEI', 'RMU', 'ALC', 'FAO', 'FNC', 'CTA', 'PMO', 'TPS',
+            'MLA', 'HER', 'CHQ', 'RHO', 'KGS', 'JTR', 'LCA', 'PFO',
+        ],
+        keywords: ['sunny', 'warm', 'beach', 'mediterranean'],
+    },
+    {
+        name: 'Ski & Alps',
+        countryCode: '',
+        icon: '⛷️',
+        description: 'Airports near ski resorts',
+        // Salzburg, Klagenfurt; Memmingen and Friedrichshafen (Tyrol, Vorarlberg, Allgäu);
+        // Grenoble (French Alps); Turin (Via Lattea); Verona and Treviso (Dolomites)
+        airports: ['SZG', 'KLU', 'FMM', 'FDH', 'GNB', 'TRN', 'VRN', 'TSF'],
+        keywords: ['skiing', 'snow', 'mountains', 'winter'],
+    },
 ];
 
 export interface AirportIndex {
@@ -50,8 +95,12 @@ export function buildAirportIndex(airports: Airport[]): AirportIndex {
         kind: 'region' as const,
         name: group.name,
         countryCode: group.countryCode,
+        icon: group.icon,
+        description: group.description,
         airportCodes: airports
-            .filter(a => a.country.code === group.countryCode && a.region && group.match.includes(a.region.name))
+            .filter(a =>
+                group.airports?.includes(a.code) ||
+                (a.country.code === group.countryCode && a.region && group.regions?.includes(a.region.name)))
             .map(a => a.code),
     })).filter(r => r.airportCodes.length > 0);
 
@@ -62,6 +111,8 @@ export function buildAirportIndex(airports: Airport[]): AirportIndex {
         countries: [...countries.values()],
     };
 }
+
+const KEYWORDS = new Map(VIRTUAL_REGIONS.map(g => [g.name, g.keywords ?? []]));
 
 export interface AirportMatches {
     regions: AirportGroup[];
@@ -75,7 +126,9 @@ export function searchAirports(index: AirportIndex, search: string): AirportMatc
     const s = search.toLowerCase();
 
     return {
-        regions: index.regions.filter(r => r.name.toLowerCase().includes(s)),
+        // Keywords match from the start ("sun" finds "sunny"), so "Skiathos" doesn't find "ski"
+        regions: index.regions.filter(r =>
+            r.name.toLowerCase().includes(s) || (s.length >= 3 && KEYWORDS.get(r.name)?.some(k => k.startsWith(s)))),
         cities: index.cities.filter(c => c.airportCodes.length > 1 && c.name.toLowerCase().includes(s)),
         countries: index.countries.filter(c => c.airportCodes.length > 1 && c.name.toLowerCase().includes(s)),
         airports: index.airports
