@@ -20,6 +20,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     return {
         title: { absolute: fullTitle },
         description,
+        alternates: { canonical: `/?${params}` },
         openGraph: { title: fullTitle, description, url: `/?${params}` },
         twitter: { title: fullTitle, description },
     };
