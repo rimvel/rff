@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDayList, upcomingWindows, WindowInfo } from '@/lib/lithuania';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -24,6 +24,8 @@ interface HolidayWindowsProps {
 /** Upcoming long weekends and school breaks (Lithuania), as one-click searches. */
 export default function HolidayWindows({ today, active, onPick }: HolidayWindowsProps) {
     const windows = useMemo(() => (today ? upcomingWindows(today) : []), [today]);
+    // Starts collapsed so the search form and results come first
+    const [open, setOpen] = useState(false);
     const strip = useRef<HTMLDivElement>(null);
     const activeKey = active?.returnDate ? `${active.date}|${active.returnDate}` : '';
 
@@ -31,17 +33,23 @@ export default function HolidayWindows({ today, active, onPick }: HolidayWindows
     useEffect(() => {
         const card = strip.current?.querySelector<HTMLElement>('.hw-card.active');
         if (card && strip.current) strip.current.scrollLeft = card.offsetLeft - 8; // the strip is the card's offset parent
-    }, [activeKey, windows]);
+    }, [activeKey, windows, open]);
 
     if (windows.length === 0) return null;
 
     return (
         <section className="holiday-windows" aria-label="Holiday windows">
             <div className="hw-header">
-                <span className="recent-title">Holiday windows</span>
-                <span className="hw-sub">Lithuanian public holidays and school breaks · pick one to search those dates</span>
+                <button type="button" className="recent-title hw-toggle" aria-expanded={open} aria-controls="hw-strip" onClick={() => setOpen(!open)}>
+                    Holiday windows <span className="hw-chevron" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                </button>
+                <span className="hw-sub">
+                    {open
+                        ? 'Lithuanian public holidays and school breaks · pick one to search those dates'
+                        : `Lithuanian long weekends and school breaks · ${windows.length} coming up`}
+                </span>
             </div>
-            <div className="hw-strip" ref={strip}>
+            <div className="hw-strip" id="hw-strip" ref={strip} hidden={!open}>
                 {windows.map(w => {
                     const isActive = active?.date === w.start && active?.returnDate === w.end;
                     return (

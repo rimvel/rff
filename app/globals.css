@@ -1986,6 +1986,28 @@ html {
   margin-bottom: 0.5rem;
 }
 
+.hw-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.hw-toggle:hover,
+.hw-toggle:focus-visible {
+  opacity: 1;
+}
+
+.hw-chevron {
+  display: inline-block;
+  width: 0.75em;
+}
+
+.hw-strip[hidden] {
+  display: none;
+}
+
 .hw-sub {
   color: white;
   opacity: 0.6;
