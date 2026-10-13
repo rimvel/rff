@@ -1297,6 +1297,10 @@ html {
   margin-bottom: -0.5rem;
 }
 
+.form-error.airports-error {
+  margin: 0 0 0.75rem;
+}
+
 [data-theme="dark"] .field-error,
 [data-theme="dark"] .form-error {
   color: #f87171;

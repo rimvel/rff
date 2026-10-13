@@ -120,7 +120,7 @@ function DateField({ id, label, value, min, onChange, flexLabel, error }: {
 }
 
 export default function SearchForm({ onSearch, isLoading, initial, today, onDraftChange }: SearchFormProps) {
-    const { airports } = useAirports();
+    const { airports, error: airportsError } = useAirports();
     const index = useMemo(() => buildAirportIndex(airports), [airports]);
 
     const [origin, setOrigin] = useState(initial?.origin ?? '');
@@ -206,6 +206,11 @@ export default function SearchForm({ onSearch, isLoading, initial, today, onDraf
 
     return (
         <form onSubmit={handleSubmit} className="search-form" noValidate>
+            {airportsError && (
+                <p className="form-error airports-error" role="alert">
+                    The list of airports couldn&apos;t be loaded, so airports can&apos;t be picked right now. Trying again…
+                </p>
+            )}
             <div className="location-group">
                 <AirportInput
                     id="origin"

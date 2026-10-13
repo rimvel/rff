@@ -11,8 +11,18 @@ export class TtlCache<T> {
 
     constructor(private ttlMs: number, private maxEntries = 5000) {}
 
-    /** Return the cached value for `key`, or load it. Concurrent callers share one load. */
-    get(key: string, load: () => Promise<T>): Promise<T> {
+    /**
+     * Return the cached value for `key`, or load it. Concurrent callers share one load. If the shared load
+     * was cancelled because the caller who started it gave up (`signal`), callers who still want it load again.
+     */
+    get(key: string, load: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+        return this.share(key, load).catch(e => {
+            if (isAbortError(e) && !signal?.aborted) return this.get(key, load, signal);
+            throw e;
+        });
+    }
+
+    private share(key: string, load: () => Promise<T>): Promise<T> {
         const now = Date.now();
         const hit = this.entries.get(key);
         if (hit && hit.expires > now) return hit.value;
@@ -43,9 +53,15 @@ export class TtlCache<T> {
     }
 }
 
+/** True for the error a cancelled task fails with (see `signal` below). */
+export function isAbortError(e: unknown): boolean {
+    return (e as { name?: string } | null)?.name === 'AbortError';
+}
+
 /**
  * Run at most `limit` tasks at the same time, and start them at least `minIntervalMs` apart
- * (so bursts are spread out).
+ * (so bursts are spread out). A task whose `signal` is aborted while it waits its turn is dropped
+ * (it fails with an AbortError) instead of being run; a task that has started is left to finish.
  */
 export function createLimiter(limit: number, minIntervalMs = 0) {
     let active = 0;
@@ -57,18 +73,20 @@ export function createLimiter(limit: number, minIntervalMs = 0) {
         queue.shift()?.();
     };
 
-    return async function run<T>(task: () => Promise<T>): Promise<T> {
+    return async function run<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
         if (active >= limit) {
             await new Promise<void>(resolve => queue.push(resolve));
         }
         active++;
         try {
+            signal?.throwIfAborted();
             if (minIntervalMs > 0) {
                 const now = Date.now();
                 const wait = nextStart - now;
                 nextStart = Math.max(now, nextStart) + minIntervalMs;
                 if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
             }
+            signal?.throwIfAborted();
             return await task();
         } finally {
             next();

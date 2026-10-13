@@ -24,7 +24,8 @@ interface DateGridProps {
 export default function DateGrid({ request, onPick }: DateGridProps) {
     const today = useToday();
     const key = `${request.origin}|${request.dest}|${request.date}|${request.returnDate}`;
-    const [loaded, setLoaded] = useState<{ key: string; grid: Grid | null } | null>(null);
+    // grid is null when it couldn't be loaded; error is the server's explanation, if it gave one
+    const [loaded, setLoaded] = useState<{ key: string; grid: Grid | null; error?: string } | null>(null);
     const grid = loaded?.key === key ? loaded.grid : undefined; // undefined while loading
 
     useEffect(() => {
@@ -37,8 +38,8 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
         }, 30_000);
         const params = new URLSearchParams({ origin: request.origin, dest: request.dest, date: request.date, returnDate: request.returnDate });
         fetch(`/api/calendar/grid?${params}`, { signal: controller.signal })
-            .then(res => (res.ok ? res.json() : null))
-            .then((data: Grid | null) => setLoaded({ key, grid: data }))
+            .then(async res => (res.ok ? { grid: (await res.json()) as Grid } : { grid: null, error: (await res.json().catch(() => null))?.error }))
+            .then(({ grid, error }: { grid: Grid | null; error?: string }) => setLoaded({ key, grid, error }))
             .catch(() => {
                 if (timedOut || !controller.signal.aborted) setLoaded({ key, grid: null });
             })
@@ -50,7 +51,7 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
     }, [key, request.origin, request.dest, request.date, request.returnDate]);
 
     if (grid === undefined) return <p className="cal-note">Loading prices…</p>;
-    if (grid === null) return <p className="cal-note">Prices couldn&apos;t be loaded.</p>;
+    if (grid === null) return <p className="cal-note">{loaded?.error ?? 'Prices couldn\'t be loaded.'}</p>;
 
     // Highlight roughly the cheapest quarter of the trips
     const all = grid.prices.flat().filter((p): p is number => p !== null).sort((a, b) => a - b);

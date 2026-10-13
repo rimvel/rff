@@ -67,8 +67,14 @@ export function layoverResult(first: Flight, second: Flight, searchDate: string,
 }
 
 /** Cheapest direct flight on each of the dates. Fares for a whole month come in one request. */
-export async function findDirect(origin: string, dest: string, dates: string[], timeZones: Map<string, string> = new Map()): Promise<SearchResult[]> {
-    const flights = await Promise.all(dates.map(date => getDayFare(origin, dest, date)));
+export async function findDirect(
+    origin: string,
+    dest: string,
+    dates: string[],
+    timeZones: Map<string, string> = new Map(),
+    signal?: AbortSignal,
+): Promise<SearchResult[]> {
+    const flights = await Promise.all(dates.map(date => getDayFare(origin, dest, date, signal)));
     return flights.flatMap((f, i) => (f ? [directResult(f, dates[i], timeZones)] : []));
 }
 
@@ -101,12 +107,13 @@ export async function findOneStop(
     dates: string[],
     timeZones: Map<string, string> = new Map(),
     changeAirports = true,
+    signal?: AbortSignal,
 ): Promise<SearchResult[]> {
     const [hubs, changes] = await Promise.all([findHubs(origin, dest), changeAirports ? findAirportChanges(origin, dest) : []]);
     const connections = [...hubs.map(hub => ({ arrive: hub, depart: hub })), ...changes];
     // Outgoing requests are rate-limited globally in ryanair.ts, so run everything at once
     const perConnection = await Promise.all(connections.map(({ arrive, depart }) => Promise.all(dates.map(async date => {
-        const [first, second] = await Promise.all([getDayFare(origin, arrive, date), getDayFare(depart, dest, date)]);
+        const [first, second] = await Promise.all([getDayFare(origin, arrive, date, signal), getDayFare(depart, dest, date, signal)]);
         return first && second ? layoverResult(first, second, date, timeZones) : null;
     }))));
     return perConnection.flat().filter((r): r is SearchResult => r !== null);

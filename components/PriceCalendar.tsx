@@ -41,7 +41,8 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
     const [mode, setMode] = useState<'grid' | 'month'>(request.returnDate ? 'grid' : 'month');
     const showGrid = mode === 'grid' && !!request.returnDate;
     const [month, setMonth] = useState(request.date.slice(0, 7));
-    const [loaded, setLoaded] = useState<{ month: string; calendar: Calendar | null } | null>(null);
+    // calendar is null when it couldn't be loaded; error is the server's explanation, if it gave one
+    const [loaded, setLoaded] = useState<{ month: string; calendar: Calendar | null; error?: string } | null>(null);
     const calendar = loaded?.month === month ? loaded.calendar : undefined; // undefined while loading
 
     useEffect(() => {
@@ -56,8 +57,8 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
         }, 30_000);
         const params = new URLSearchParams({ origin: request.origin, dest: request.dest, month });
         fetch(`/api/calendar?${params}`, { signal: controller.signal })
-            .then(res => (res.ok ? res.json() : null))
-            .then((data: Calendar | null) => setLoaded({ month, calendar: data }))
+            .then(async res => (res.ok ? { calendar: (await res.json()) as Calendar } : { calendar: null, error: (await res.json().catch(() => null))?.error }))
+            .then(({ calendar, error }: { calendar: Calendar | null; error?: string }) => setLoaded({ month, calendar, error }))
             .catch(() => {
                 if (timedOut || !controller.signal.aborted) setLoaded({ month, calendar: null });
             })
@@ -150,7 +151,7 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
                         })}
                     </div>
                     {calendar === undefined && <p className="cal-note">Loading prices…</p>}
-                    {calendar === null && <p className="cal-note">Prices couldn&apos;t be loaded.</p>}
+                    {calendar === null && <p className="cal-note">{loaded?.error ?? 'Prices couldn\'t be loaded.'}</p>}
                     {calendar && (
                         <p className="cal-note">
                             Cheapest one-way price per day{calendar.includesConnections ? ', direct or with one stop' : ' (direct flights only)'}.

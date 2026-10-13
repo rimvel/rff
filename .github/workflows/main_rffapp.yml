@@ -9,6 +9,14 @@ on:
       - main
   workflow_dispatch:
 
+# One deploy at a time, in order: a second merge waits for the first deploy instead of racing it
+concurrency:
+  group: deploy-rffapp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -82,3 +90,17 @@ jobs:
           slot-name: 'Production'
           package: .
           startup-command: 'PORT=8080 node server.js'
+
+      # Azure reports success before it has switched to the new version (it can take a few minutes),
+      # so wait until the health check shows this commit; the run fails if it never does
+      - name: Wait until the new version is live
+        run: |
+          want="${GITHUB_SHA::7}"
+          for i in $(seq 1 40); do
+            live=$(curl -s --max-time 20 https://rffapp.azurewebsites.net/api/health | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+            echo "live version: ${live:-no answer} (waiting for $want)"
+            [ "$live" = "$want" ] && exit 0
+            sleep 15
+          done
+          echo "::error::The new version wasn't live after 10 minutes. Check the app in Azure."
+          exit 1

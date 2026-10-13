@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calendarRequestsPerVisitor, parseGridParams, roundTripGrid } from '@/lib/calendar';
+import { calendarCost, calendarRequestsPerVisitor, parseGridParams, roundTripGrid } from '@/lib/calendar';
 import { clientKey, tooManyRequests } from '@/lib/rateLimit';
 import { isRyanairUnavailable } from '@/lib/ryanair';
 import { RYANAIR_UNAVAILABLE } from '@/lib/search';
@@ -10,10 +10,10 @@ export async function GET(request: NextRequest) {
     if (!parsed.ok) {
         return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const allowed = calendarRequestsPerVisitor(clientKey(request.headers));
+    const allowed = calendarRequestsPerVisitor(clientKey(request.headers), calendarCost(parsed.params.origins, parsed.params.dests));
     if (!allowed.ok) return tooManyRequests('Too many requests. Please wait a minute.', allowed.retryAfterSeconds);
     try {
-        const grid = await roundTripGrid(parsed.params);
+        const grid = await roundTripGrid(parsed.params, request.signal); // dropped if the visitor leaves
         if (grid.prices.every(row => row.every(p => p === null)) && isRyanairUnavailable()) {
             return NextResponse.json({ error: RYANAIR_UNAVAILABLE }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
         }

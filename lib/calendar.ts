@@ -5,8 +5,17 @@ import { getCoordinates, getMonthFares, isAirportCode } from './ryanair';
 import { addDays, expandDates } from './time';
 import { MAX_AIRPORTS_PER_SIDE } from './search';
 
-// Shared by the calendar endpoints: browsing is quick, but each view can mean dozens of requests to Ryanair
+// Shared by the calendar endpoints: browsing is quick, but each view can mean dozens of requests to Ryanair.
+// A view for many airports counts as several (see calendarCost).
 export const calendarRequestsPerVisitor = createRateLimit(40, 60_000);
+
+// A calendar for more airport pairs than this isn't shown: each pair is at least one request per month
+export const MAX_CALENDAR_PAIRS = 100;
+
+/** How much of a visitor's calendar allowance one view uses: 1, plus 1 for every 10 airport pairs. */
+export function calendarCost(origins: string[], dests: string[]): number {
+    return 1 + Math.floor(airportPairs(origins, dests).length / 10);
+}
 
 export interface CalendarDay {
     date: string;
@@ -39,6 +48,9 @@ export function parseCalendarParams(sp: URLSearchParams): { ok: true; params: Ca
         return { ok: false, error: 'Too many airports selected.' };
     }
     if (!MONTH.test(month)) return { ok: false, error: 'Invalid month.' };
+    if (airportPairs(origins, dests).length > MAX_CALENDAR_PAIRS) {
+        return { ok: false, error: 'The price calendar isn\'t available for this many airports. Choose fewer to see it.' };
+    }
     return { ok: true, params: { origins, dests, month } };
 }
 
@@ -61,18 +73,18 @@ function offerTo(best: DayPrices) {
  * Cheapest one-way price on each of the days for one airport pair: direct, and (if `connections`) with one
  * stop, including changing airports in the same city. Fares come a month at a time.
  */
-async function cheapestByDay(origin: string, dest: string, days: string[], connections: boolean): Promise<DayPrices> {
+async function cheapestByDay(origin: string, dest: string, days: string[], connections: boolean, signal?: AbortSignal): Promise<DayPrices> {
     const wanted = new Set(days);
     const months = [...new Set(days.map(d => d.slice(0, 7)))];
     const best: DayPrices = new Map();
     const offer = offerTo(best);
 
-    const direct = Promise.all(months.map(m => getMonthFares(origin, dest, m)));
+    const direct = Promise.all(months.map(m => getMonthFares(origin, dest, m, signal)));
     if (connections) {
         const [hubs, changes] = await Promise.all([findHubs(origin, dest), findAirportChanges(origin, dest)]);
         const links = [...hubs.map(hub => ({ arrive: hub, depart: hub })), ...changes];
         await Promise.all(links.flatMap(({ arrive, depart }) => months.map(async month => {
-            const [first, second] = await Promise.all([getMonthFares(origin, arrive, month), getMonthFares(depart, dest, month)]);
+            const [first, second] = await Promise.all([getMonthFares(origin, arrive, month, signal), getMonthFares(depart, dest, month, signal)]);
             for (const [date, a] of first) {
                 const b = wanted.has(date) ? second.get(date) : undefined;
                 const trip = b && layoverResult(a, b, date, new Map());
@@ -91,14 +103,14 @@ function airportPairs(origins: string[], dests: string[]) {
 }
 
 /** Cheapest one-way price for every day of a month, across all the airport pairs. */
-export async function priceCalendar({ origins, dests, month }: CalendarParams): Promise<PriceCalendar> {
+export async function priceCalendar({ origins, dests, month }: CalendarParams, signal?: AbortSignal): Promise<PriceCalendar> {
     const pairs = airportPairs(origins, dests);
     const includesConnections = pairs.length <= MAX_PAIRS_WITH_CONNECTIONS;
     const days = daysOfMonth(month);
     const best: DayPrices = new Map();
     const offer = offerTo(best);
 
-    const perPair = await Promise.all(pairs.map(({ origin, dest }) => cheapestByDay(origin, dest, days, includesConnections)));
+    const perPair = await Promise.all(pairs.map(({ origin, dest }) => cheapestByDay(origin, dest, days, includesConnections, signal)));
     for (const prices of perPair) for (const [date, p] of prices) offer(date, p.price, p.direct);
 
     return {
@@ -149,7 +161,7 @@ export function parseGridParams(sp: URLSearchParams): { ok: true; params: GridPa
  * separate one-way fares (that's how they're booked anyway), paired by the same rules as the search,
  * including coming back from another airport in the same city or to another selected home airport nearby.
  */
-export async function roundTripGrid({ origins, dests, date, returnDate }: GridParams): Promise<DateGrid> {
+export async function roundTripGrid({ origins, dests, date, returnDate }: GridParams, signal?: AbortSignal): Promise<DateGrid> {
     const departures = expandDates(date, GRID_DAYS, 'both');
     const returns = expandDates(returnDate, GRID_DAYS, 'both');
     const pairs = airportPairs(origins, dests);
@@ -157,8 +169,8 @@ export async function roundTripGrid({ origins, dests, date, returnDate }: GridPa
 
     const [coordinates, outbound, back] = await Promise.all([
         getCoordinates(),
-        Promise.all(pairs.map(({ origin, dest }) => cheapestByDay(origin, dest, departures, includesConnections))),
-        Promise.all(pairs.map(({ origin, dest }) => cheapestByDay(dest, origin, returns, includesConnections))),
+        Promise.all(pairs.map(({ origin, dest }) => cheapestByDay(origin, dest, departures, includesConnections, signal))),
+        Promise.all(pairs.map(({ origin, dest }) => cheapestByDay(dest, origin, returns, includesConnections, signal))),
     ]);
 
     const prices = departures.map(dep => returns.map(ret => {

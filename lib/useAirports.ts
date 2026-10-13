@@ -30,6 +30,9 @@ function fetchAirports(): Promise<Airport[]> {
     return fetchPromise;
 }
 
+// When the list can't be loaded (e.g. Ryanair isn't answering the server), try again after 5, 10, 20, 30, 30... s
+const retryDelay = (attempt: number) => Math.min(30_000, 5_000 * 2 ** attempt);
+
 export function useAirports() {
     const [airports, setAirports] = useState<Airport[]>(() => airportCache ?? []);
     const [error, setError] = useState<string | null>(null);
@@ -37,16 +40,25 @@ export function useAirports() {
     useEffect(() => {
         if (airportCache) return;
         let cancelled = false;
-        fetchAirports()
-            .then(data => {
-                if (!cancelled) setAirports(data);
-            })
-            .catch(err => {
-                console.error('Failed to load airports', err);
-                if (!cancelled) setError('Failed to load airports');
-            });
+        let retry: ReturnType<typeof setTimeout> | undefined;
+        const load = (attempt: number) => {
+            fetchAirports()
+                .then(data => {
+                    if (cancelled) return;
+                    setAirports(data);
+                    setError(null);
+                })
+                .catch(err => {
+                    console.error('Failed to load airports', err);
+                    if (cancelled) return;
+                    setError('Failed to load airports');
+                    retry = setTimeout(() => load(attempt + 1), retryDelay(attempt));
+                });
+        };
+        load(0);
         return () => {
             cancelled = true;
+            clearTimeout(retry);
         };
     }, []);
 
