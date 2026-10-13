@@ -60,8 +60,10 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
             selectAnywhere();
             return;
         }
-        // Prefer a city, then a region, then a country, then a single airport
-        const group = matches.cities[0] ?? matches.regions[0] ?? matches.countries[0];
+        // Prefer a city, then a country typed in full ("France", not "South of France"), then a region,
+        // then a country, then a single airport
+        const country = matches.countries.find(c => c.name.toLowerCase() === typed);
+        const group = matches.cities[0] ?? country ?? matches.regions[0] ?? matches.countries[0];
         if (group) selectGroup(group);
         else if (matches.airports[0]) selectAirport(matches.airports[0]);
     };
@@ -73,13 +75,15 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
             onMouseDown={e => e.preventDefault()}
             onClick={() => selectGroup(group)}
         >
-            <span className="flag-icon">{getFlagEmoji(group.countryCode)}</span>
+            <span className="flag-icon">{group.icon ?? getFlagEmoji(group.countryCode)}</span>
             <div className="autocomplete-text">
                 <strong>{group.name}</strong>
                 <span className="autocomplete-sub">
-                    {group.kind === 'region'
-                        ? `Regional Group (${group.airportCodes.length} airports)`
-                        : `All Airports (${group.airportCodes.length})`}
+                    {group.kind !== 'region'
+                        ? `All Airports (${group.airportCodes.length})`
+                        : group.description
+                          ? `${group.description} · ${group.airportCodes.length} airports`
+                          : `Regional Group (${group.airportCodes.length} airports)`}
                 </span>
             </div>
         </div>
