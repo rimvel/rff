@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { PriceCalendar as Calendar } from '@/lib/calendar';
 import { SearchRequest } from '@/lib/searchUrl';
+import { holidayOn, schoolBreakOn } from '@/lib/lithuania';
 import { expandDates, localToUtcMs } from '@/lib/time';
 import { useToday } from '@/lib/useUrl';
 import DateGrid from './DateGrid';
@@ -46,12 +47,20 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
     useEffect(() => {
         if (!open || showGrid) return;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30_000); // don't show "Loading prices..." forever
+        // Give up after 30 s instead of showing "Loading prices..." forever; a cancel because the month
+        // changed or the calendar closed is not a failure
+        let timedOut = false;
+        const timeout = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, 30_000);
         const params = new URLSearchParams({ origin: request.origin, dest: request.dest, month });
         fetch(`/api/calendar?${params}`, { signal: controller.signal })
             .then(res => (res.ok ? res.json() : null))
             .then((data: Calendar | null) => setLoaded({ month, calendar: data }))
-            .catch(() => setLoaded({ month, calendar: null }))
+            .catch(() => {
+                if (timedOut || !controller.signal.aborted) setLoaded({ month, calendar: null });
+            })
             .finally(() => clearTimeout(timeout));
         return () => {
             clearTimeout(timeout);
@@ -114,12 +123,17 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
                         {calendar && Array.from({ length: weekday(`${month}-01`) }, (_, i) => <div key={`pad-${i}`} />)}
                         {calendar?.days.map(day => {
                             const past = !!today && day.date < today;
+                            const holiday = holidayOn(day.date);
+                            const schoolBreak = schoolBreakOn(day.date);
                             const classes = [
                                 'cal-day',
                                 day.price === null || past ? 'cal-empty' : '',
                                 day.price !== null && !past && isCheap(day.price) ? 'cal-cheap' : '',
                                 searched.has(day.date) ? 'cal-selected' : '',
+                                holiday ? 'cal-holiday' : '',
+                                schoolBreak ? 'cal-school' : '',
                             ].join(' ');
+                            const priceText = day.price === null ? 'No flights' : `${day.direct ? 'Direct' : 'With one stop'} from €${day.price.toFixed(2)}`;
                             return (
                                 <button
                                     key={day.date}
@@ -127,7 +141,7 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
                                     className={classes}
                                     disabled={day.price === null || past}
                                     onClick={() => onPickDate(day.date)}
-                                    title={day.price === null ? 'No flights' : `${day.direct ? 'Direct' : 'With one stop'} from €${day.price.toFixed(2)}`}
+                                    title={[priceText, holiday, schoolBreak?.name].filter(Boolean).join(' · ')}
                                 >
                                     <span className="cal-date">{Number(day.date.slice(8))}</span>
                                     <span className="cal-price">{day.price === null || past ? '–' : `€${Math.round(day.price)}`}</span>
@@ -141,6 +155,12 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
                         <p className="cal-note">
                             Cheapest one-way price per day{calendar.includesConnections ? ', direct or with one stop' : ' (direct flights only)'}.
                             {request.returnDate && ' Picking a day moves the return date too, keeping the trip length.'}
+                        </p>
+                    )}
+                    {calendar && (
+                        <p className="cal-legend">
+                            <span className="cal-legend-holiday">12</span> public holiday
+                            <span className="cal-legend-school" aria-hidden="true" /> school break (Lithuania)
                         </p>
                     )}
                 </>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
 import FlightResults from '@/components/FlightResults';
+import HolidayWindows from '@/components/HolidayWindows';
 import PriceCalendar from '@/components/PriceCalendar';
 import RecentSearches from '@/components/RecentSearches';
 import SavedRoutes, { SaveRouteButton } from '@/components/SavedRoutes';
@@ -54,6 +55,28 @@ export default function HomePage() {
 
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
   const [searchCount, setSearchCount] = useState(0); // bumped to repeat the same search
+
+  // Dates picked from a holiday window before any route was chosen: the form starts with them
+  const [presetDates, setPresetDates] = useState<{ date: string; returnDate: string; n: number } | null>(null);
+  const formInitial: SearchRequest | null = request ?? (presetDates && { origin: '', dest: '', date: presetDates.date, returnDate: presetDates.returnDate });
+
+  const pickHolidayWindow = (w: { start: string; end: string }) => {
+    if (request) {
+      // Same route (and airports), on the window's dates
+      setQueryString(toPageParams({
+        ...request,
+        date: w.start,
+        returnDate: w.end,
+        departureDateRange: undefined,
+        departureDateDirection: undefined,
+        returnDateRange: undefined,
+        returnDateDirection: undefined,
+      }));
+      return;
+    }
+    setPresetDates(p => ({ date: w.start, returnDate: w.end, n: (p?.n ?? 0) + 1 }));
+    setTimeout(() => document.getElementById('origin')?.focus(), 0);
+  };
   const runId = `${key}#${searchCount}`;
   const current = outcome?.key === runId ? outcome : null;
   const results = useMemo(
@@ -165,6 +188,7 @@ export default function HomePage() {
             className="no-underline text-current"
             onClick={e => {
               e.preventDefault();
+              setPresetDates(null);
               setQueryString(new URLSearchParams());
             }}
           >
@@ -179,8 +203,8 @@ export default function HomePage() {
       <main className="app-main">
         {/* Re-created from the address when it changes from outside the form, and once today's date is known */}
         <SearchForm
-          key={`${formVersion}|${today}`}
-          initial={request}
+          key={`${formVersion}|${today}|${presetDates?.n ?? 0}`}
+          initial={formInitial}
           today={today}
           onSearch={handleSearch}
           onDraftChange={setDraftKey}
@@ -191,6 +215,12 @@ export default function HomePage() {
         <SavedRoutes onPick={route => setQueryString(toPageParams(searchFor(route, request?.date ?? addDays(today, 1))))} />
 
         <RecentSearches currentKey={key} onPick={req => setQueryString(toPageParams(req))} />
+
+        <HolidayWindows
+          today={today}
+          active={request ? { date: request.date, returnDate: request.returnDate } : presetDates ?? undefined}
+          onPick={pickHolidayWindow}
+        />
 
         {isLoading && (
           <div className="loading-state">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { DateGrid as Grid } from '@/lib/calendar';
+import { holidayOn, schoolBreakOn, timeOff } from '@/lib/lithuania';
 import { SearchRequest } from '@/lib/searchUrl';
 import { localToUtcMs } from '@/lib/time';
 import { useToday } from '@/lib/useUrl';
@@ -28,12 +29,19 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
 
     useEffect(() => {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30_000);
+        // Give up after 30 s; a cancel because the grid changed or closed is not a failure
+        let timedOut = false;
+        const timeout = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, 30_000);
         const params = new URLSearchParams({ origin: request.origin, dest: request.dest, date: request.date, returnDate: request.returnDate });
         fetch(`/api/calendar/grid?${params}`, { signal: controller.signal })
             .then(res => (res.ok ? res.json() : null))
             .then((data: Grid | null) => setLoaded({ key, grid: data }))
-            .catch(() => setLoaded({ key, grid: null }))
+            .catch(() => {
+                if (timedOut || !controller.signal.aborted) setLoaded({ key, grid: null });
+            })
             .finally(() => clearTimeout(timeout));
         return () => {
             clearTimeout(timeout);
@@ -59,7 +67,12 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
                                 <span>Out ↓</span>
                             </th>
                             {grid.returns.map(ret => (
-                                <th key={ret} scope="col" className={ret === request.returnDate ? 'dg-current' : ''}>
+                                <th
+                                    key={ret}
+                                    scope="col"
+                                    className={`${ret === request.returnDate ? 'dg-current' : ''} ${holidayOn(ret) ? 'dg-holiday' : ''} ${schoolBreakOn(ret) ? 'dg-school' : ''}`}
+                                    title={[holidayOn(ret), schoolBreakOn(ret)?.name].filter(Boolean).join(' · ') || undefined}
+                                >
                                     <span className="dg-weekday">{weekdayOf(ret)}</span>
                                     {dayMonth(ret)}
                                 </th>
@@ -69,7 +82,11 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
                     <tbody>
                         {grid.departures.map((dep, i) => (
                             <tr key={dep}>
-                                <th scope="row" className={dep === request.date ? 'dg-current' : ''}>
+                                <th
+                                    scope="row"
+                                    className={`${dep === request.date ? 'dg-current' : ''} ${holidayOn(dep) ? 'dg-holiday' : ''} ${schoolBreakOn(dep) ? 'dg-school' : ''}`}
+                                    title={[holidayOn(dep), schoolBreakOn(dep)?.name].filter(Boolean).join(' · ') || undefined}
+                                >
                                     <span className="dg-weekday">{weekdayOf(dep)}</span>
                                     {dayMonth(dep)}
                                 </th>
@@ -77,6 +94,10 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
                                     const price = grid.prices[i][j];
                                     const past = !!today && dep < today;
                                     const usable = price !== null && !past;
+                                    // Time off for the trip (Lithuania): leave days, and school a pupil would miss
+                                    const off = timeOff(dep, ret);
+                                    const leave = off.leaveDays.length;
+                                    const school = off.schoolDays.length;
                                     const classes = [
                                         'dg-cell',
                                         usable ? '' : 'dg-empty',
@@ -90,9 +111,14 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
                                                 className={classes}
                                                 disabled={!usable}
                                                 onClick={() => onPick(dep, ret)}
-                                                title={usable ? `${dayMonth(dep)} – ${dayMonth(ret)}: from €${price.toFixed(2)}` : 'No round trip'}
+                                                title={usable
+                                                    ? `${dayMonth(dep)} – ${dayMonth(ret)}: from €${price.toFixed(2)} · ${leave === 0 ? 'no leave days' : `${leave} leave day${leave === 1 ? '' : 's'}`}${school ? ` · misses ${school} school day${school === 1 ? '' : 's'}` : ''}`
+                                                    : 'No round trip'}
                                             >
                                                 {usable ? `€${Math.round(price)}` : '–'}
+                                                {usable && (
+                                                    <span className={`dg-leave ${school ? 'school' : ''}`}>{leave === 0 ? 'free' : `${leave}d`}</span>
+                                                )}
                                             </button>
                                         </td>
                                     );
@@ -104,7 +130,8 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
             </div>
             <p className="cal-note">
                 Cheapest round trip for each pair of dates{grid.includesConnections ? ', direct or with one stop' : ' (direct flights only)'}.
-                Pick a cell to search those dates.
+                Under each price: leave days needed (Mon–Fri, not Lithuanian public holidays); orange means a pupil would miss
+                school. Pick a cell to search those dates.
             </p>
         </>
     );
