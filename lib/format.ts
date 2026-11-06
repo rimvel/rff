@@ -1,6 +1,6 @@
 // Display formatting shared by the results.
 
-import { localToUtcMs } from './time';
+import { localToUtcMs, minutesAtSamePlace } from './time';
 
 /** "50 min", "3 h", "8 h 10 min" */
 export function formatDuration(minutes: number): string {
@@ -11,11 +11,21 @@ export function formatDuration(minutes: number): string {
     return rest === 0 ? `${h} h` : `${h} h ${rest} min`;
 }
 
-/** Long stays: "13 h", "7 d 13 h" */
-export function formatStay(minutes: number): string {
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    return days > 0 ? `${days} d ${hours % 24} h` : `${hours} h`;
+/** Calendar days from one local date or time to another: 1 for "the next day" ("+1" on an arrival). */
+export function daysLater(fromLocal: string, toLocal: string): number {
+    return Math.round((localToUtcMs(toLocal.slice(0, 10)) - localToUtcMs(fromLocal.slice(0, 10))) / 86_400_000);
+}
+
+/**
+ * Time at the destination between landing and flying back (local times at one place).
+ * Under a day: hours ("13 h"). A day or more: nights, counted like hotel nights
+ * ("10 nights" from 24 Dec 14:00 to 3 Jan 11:00).
+ */
+export function formatStay(arrival: string, departure: string): string {
+    const minutes = minutesAtSamePlace(arrival, departure);
+    if (minutes < 24 * 60) return minutes < 60 ? formatDuration(minutes) : `${Math.floor(minutes / 60)} h`;
+    const nights = daysLater(arrival, departure);
+    return `${nights} night${nights === 1 ? '' : 's'}`;
 }
 
 /** Local time of day from "YYYY-MM-DDTHH:mm:ss": "06:45" */

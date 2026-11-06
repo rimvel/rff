@@ -25,6 +25,12 @@ interface FlightResultsProps {
 
 const PAGE_SIZE = 50;
 
+/** Identifies a trip by its flights, so an opened row stays with its trip when the list is re-sorted. */
+function tripKey(result: SearchResult): string {
+    const legs = [result, ...(result.returnFlights?.slice(0, 1) ?? [])];
+    return legs.flatMap(leg => leg.flights.map(f => `${f.origin}${f.departureDate}${f.destination}`)).join('|');
+}
+
 // The map (and its library) is only loaded when someone opens the map view
 const AnywhereMap = dynamic(() => import('./AnywhereMap'), {
     ssr: false,
@@ -54,6 +60,18 @@ export default function FlightResults({ request, results, view, onViewChange, on
         return anywhere ? onePerDestination(sorted) : sorted;
     }, [results, view, anywhere]);
     const summary = useMemo(() => summarize(visible), [visible]);
+    const keys = useMemo(() => {
+        const seen = new Map<string, number>();
+        return visible.map(r => {
+            const key = tripKey(r);
+            const n = seen.get(key) ?? 0;
+            seen.set(key, n + 1);
+            return n === 0 ? key : `${key}#${n}`;
+        });
+    }, [visible]);
+    // Name the airports on each row only when they differ between results ("Anywhere", groups, several airports);
+    // otherwise the search title already says where the flights go
+    const showRoute = useMemo(() => anywhere || new Set(results.map(r => `${r.origin}-${r.destination}`)).size > 1, [anywhere, results]);
     const total = anywhere ? new Set(results.map(r => r.destination)).size : results.length;
     const noun = (n: number) => (anywhere ? (n === 1 ? 'destination' : 'destinations') : n === 1 ? 'option' : 'options');
 
@@ -136,7 +154,7 @@ export default function FlightResults({ request, results, view, onViewChange, on
 
             <div className="results-list" hidden={anywhere && view.showMap}>
                 {visible.slice(0, shown).map((result, i) => (
-                    <ResultCard key={i} result={result} places={places} />
+                    <ResultCard key={keys[i]} result={result} places={places} showRoute={showRoute} />
                 ))}
             </div>
 
