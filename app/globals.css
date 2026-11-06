@@ -1941,8 +1941,15 @@ html {
   opacity: 0.7;
 }
 
-.map-tiles-dark {
-  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+/* Quieter tiles so the price pins stand out: less colour and contrast (OpenStreetMap's own style, faded).
+   The filter goes on each tile, not the whole layer: on the layer, Chrome shows seams between tiles at in-between zooms. */
+.map-tiles .leaflet-tile {
+  filter: saturate(0.3) contrast(0.8) brightness(1.04);
+}
+
+/* Dark mode: the same tiles inverted, then faded the same way */
+.map-tiles-dark .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) saturate(0.3) brightness(0.85) contrast(0.8);
 }
 
 .map-pin-wrapper {
@@ -1951,12 +1958,25 @@ html {
 }
 
 /* Bring a pin to the front when pointed at, since nearby pins overlap */
-.map-pin-wrapper:hover {
+.map-pin-wrapper:hover,
+.map-pin-wrapper:focus-visible {
   z-index: 10000 !important;
 }
 
+.map-pin-wrapper:focus-visible {
+  outline: none;
+}
+
+.map-pin-wrapper:focus-visible > .map-pin,
+.map-pin-wrapper:focus-visible > .map-dot::after {
+  outline: 3px solid #0ea5e9;
+  outline-offset: 1px;
+}
+
+/* A price label, centred on the destination (the marker itself is a 0×0 point) */
 .map-pin {
-  display: inline-block;
+  position: absolute;
+  transform: translate(-50%, -50%);
   padding: 0.125rem 0.4rem;
   border-radius: 9999px;
   background: white;
@@ -1971,6 +1991,48 @@ html {
 .map-pin.cheap {
   border-color: #10b981;
   color: #047857;
+}
+
+/* A destination without a label: a small dot with a finger-sized hit area around it */
+.map-dot {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.map-dot::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.map-dot.cheap::after {
+  background: #10b981;
+}
+
+.map-pin-wrapper:hover > .map-dot::after {
+  inset: 4px;
+}
+
+/* Name and price for screen readers (the label shows only the price, a dot nothing) */
+.map-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Hover names would sit under an open popup */
+.anywhere-map:has(.leaflet-popup) .leaflet-tooltip {
+  display: none;
 }
 
 .map-popup {
