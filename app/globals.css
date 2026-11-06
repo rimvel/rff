@@ -694,25 +694,26 @@ html {
 .results-list {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 0.5rem;
 }
 
+/* One result: a compact row that opens to the full timeline (details in "Result card" below) */
 .result-card {
   background: var(--card-bg);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: var(--shadow-lg);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s ease;
   border-left: 4px solid var(--primary);
+  overflow: clip; /* keeps the row's hover tint inside the rounded corners */
 }
 
 .result-card.layover {
   border-left-color: var(--secondary);
 }
 
-.result-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+.result-card:hover,
+.result-card.open {
+  box-shadow: var(--shadow-lg);
 }
 
 @media (max-width: 768px) {
@@ -1359,91 +1360,350 @@ html {
   font-size: 0.9375rem;
 }
 
-/* Result card: route and price on top, then a timeline per direction */
-.rc-header {
+/* Result card: a compact row (times, duration, stops, price, Book) that opens to a timeline per direction.
+   Round trips add a full-width line of time-off chips under the row. */
+.rr-head {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "route price"
-    "meta price";
+    "toggle buy"
+    "extra extra";
+  align-items: center;
   column-gap: 1rem;
-  padding-bottom: 1rem;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.rc-route {
-  grid-area: route;
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.3;
+  min-height: 3.75rem; /* rows with and without a Book button are the same height */
+  padding: 0.75rem 2.75rem 0.75rem 1rem;
   color: var(--foreground);
 }
 
-.rc-route-back {
+.rr-head:hover {
+  background: rgba(14, 165, 233, 0.05);
+}
+
+.rr-toggle {
+  grid-area: toggle;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Clicking anywhere on the row opens it, except the Book button, which sits above this layer */
+.rr-toggle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.rr-toggle:focus-visible {
+  outline: none;
+}
+
+.rr-toggle:focus-visible::after {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: 0.75rem;
+}
+
+/* Warnings keep their hover explanations */
+.rr-toggle .risk-badge,
+.rr-extra .time-chip,
+.rr-later {
+  position: relative;
+  z-index: 1;
+}
+
+.rr-route {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rr-route-back {
   font-weight: 500;
   opacity: 0.75;
 }
 
-.rc-meta {
-  grid-area: meta;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem 1.25rem;
-  margin-top: 0.5rem;
-  font-size: 0.8125rem;
-  color: var(--foreground);
-}
-
-.rc-meta-leg {
-  display: inline-flex;
-  flex-wrap: wrap;
+/* One direction on one line; fixed columns line up across rows. Warnings stack in their column when
+   there are several (it is at least as wide as one warning). */
+.rr-leg {
+  display: grid;
+  grid-template-columns: 5.25rem 8.25rem 5.5rem auto minmax(7rem, 1fr);
+  grid-template-areas: "day times dur stops flags";
   align-items: center;
-  gap: 0.25rem 0.5rem;
-  opacity: 0.85;
+  column-gap: 0.75rem;
 }
 
-.rc-meta-leg > span:last-child {
-  white-space: nowrap;
+.rr-leg.with-label {
+  grid-template-columns: 2.5rem 5.25rem 8.25rem 5.5rem auto minmax(7rem, 1fr);
+  grid-template-areas: "dir day times dur stops flags";
 }
 
-.rc-meta-dir {
+.rr-sub {
+  display: contents;
+}
+
+.rr-dir {
+  grid-area: dir;
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.6;
+  opacity: 0.65;
 }
 
-.rc-price {
-  grid-area: price;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-  text-align: right;
-}
-
-.rc-price .price-value {
-  font-size: 2rem;
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.price-link.static,
-.price-link.static:hover {
-  cursor: default;
-  transform: none;
-  color: inherit;
-  filter: none;
-}
-
-.rc-price-note {
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--foreground);
-  opacity: 0.6;
+.rr-day {
+  grid-area: day;
+  font-size: 0.8125rem;
+  opacity: 0.7;
   white-space: nowrap;
+}
+
+.rr-times {
+  grid-area: times;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rr-later {
+  margin-left: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 0;
+  vertical-align: super;
+  color: #b45309;
+  cursor: help;
+}
+
+.rr-dur {
+  grid-area: dur;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.rr-stops {
+  grid-area: stops;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rr-stops.direct {
+  color: #15803d;
+}
+
+.rr-stops.layover {
+  color: #b45309;
+}
+
+.rr-flags {
+  grid-area: flags;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.rr-extra {
+  grid-area: extra;
+  margin-top: 0.3125rem;
+  cursor: pointer;
+}
+
+.rr-flags .risk-badge,
+.rr-extra .time-chip {
+  padding: 0 0.4375rem;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.rr-chevron {
+  position: absolute;
+  top: 50%;
+  right: 0.875rem;
+  margin-top: -8px;
+  opacity: 0.55;
+  transition: transform 0.2s ease;
+}
+
+.result-card.open .rr-chevron {
+  transform: rotate(180deg);
+}
+
+.rr-buy {
+  grid-area: buy;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rr-price {
+  min-width: 5.5rem;
+  text-align: right;
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rr-book,
+.rr-tickets {
+  min-width: 5.25rem;
+}
+
+.rr-book {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  border-radius: 0.5rem;
+  background: #0369a1;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.rr-book:hover {
+  background: #075985;
+}
+
+.rr-book:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.rr-tickets {
+  font-size: 0.8125rem;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.rr-details {
+  padding: 1rem 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+[data-theme="dark"] .rr-book { background: #38bdf8; color: #0f172a; }
+[data-theme="dark"] .rr-book:hover { background: #7dd3fc; }
+[data-theme="dark"] .rr-stops.direct { color: #4ade80; }
+[data-theme="dark"] .rr-stops.layover,
+[data-theme="dark"] .rr-later { color: #fbbf24; }
+[data-theme="dark"] .time-chip.school { color: #fb923c; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rr-book { background: #38bdf8; color: #0f172a; }
+  :root:not([data-theme="light"]) .rr-book:hover { background: #7dd3fc; }
+  :root:not([data-theme="light"]) .rr-stops.direct { color: #4ade80; }
+  :root:not([data-theme="light"]) .rr-stops.layover,
+  :root:not([data-theme="light"]) .rr-later { color: #fbbf24; }
+  :root:not([data-theme="light"]) .time-chip.school { color: #fb923c; }
+}
+
+/* Narrow screens: each direction on two lines (times, then day · duration · stops), price above Book */
+@media (max-width: 940px) {
+  .rr-head {
+    column-gap: 0.75rem;
+    padding: 0.625rem 2.25rem 0.625rem 0.75rem;
+  }
+
+  .rr-toggle {
+    gap: 0.375rem;
+  }
+
+  .rr-leg,
+  .rr-leg.with-label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.5rem;
+    overflow: hidden; /* clips the separator in front of the first item on each line (see .rr-sub) */
+  }
+
+  .rr-times {
+    font-size: 1rem;
+  }
+
+  /* Day · duration · stops · warnings: each item starts with a separator, and the line is shifted left
+     by one separator, so a wrapped line never starts or ends with a dot */
+  .rr-sub {
+    display: flex;
+    flex-basis: calc(100% + 0.875rem);
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 0.125rem;
+    margin-left: -0.875rem;
+  }
+
+  .rr-day,
+  .rr-dur,
+  .rr-stops {
+    font-size: 0.75rem;
+  }
+
+  .rr-sub > *::before {
+    content: "·";
+    display: inline-block;
+    width: 0.875rem;
+    text-align: center;
+    font-weight: 400;
+    color: var(--foreground);
+    opacity: 0.6;
+  }
+
+  /* Warnings get space in front instead of a dot */
+  .rr-flags {
+    padding-left: 0.875rem;
+  }
+
+  .rr-flags::before {
+    display: none;
+  }
+
+  .rr-buy {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.375rem;
+  }
+
+  .rr-price {
+    min-width: 0;
+    font-size: 1.125rem;
+  }
+
+  .rr-book,
+  .rr-tickets {
+    min-width: 0;
+  }
+
+  .rr-tickets {
+    text-align: right;
+  }
+
+  .rr-chevron {
+    right: 0.625rem;
+  }
+
+  .rr-details {
+    padding: 0.75rem 0.75rem 1rem;
+  }
 }
 
 .rc-legs {
@@ -1660,20 +1920,6 @@ html {
 }
 
 @media (max-width: 768px) {
-  .rc-header {
-    grid-template-areas:
-      "route price"
-      "meta meta";
-  }
-
-  .rc-route {
-    font-size: 1.0625rem;
-  }
-
-  .rc-price .price-value {
-    font-size: 1.5rem;
-  }
-
   .tl-flight,
   .tl-layover {
     padding-left: 1.5rem;
