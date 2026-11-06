@@ -644,6 +644,112 @@ html {
   }
 }
 
+/* One-line summary of the search shown, in place of the form on phones (SearchSummary). Wider screens
+   always show the whole form. */
+.search-summary {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .search-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    max-width: 1000px;
+    margin: 0 auto 1rem;
+    padding: 0.5rem 0.5rem 0.5rem 1rem;
+    background: var(--card-bg);
+    color: var(--foreground);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .search-form.is-collapsed {
+    display: none;
+  }
+
+  /* Open: the summary becomes the top of the form */
+  .search-summary.expanded {
+    margin-bottom: 0;
+    border-radius: 0.75rem 0.75rem 0 0;
+    border-bottom: 1px solid var(--border);
+    box-shadow: none;
+  }
+
+  .search-summary.expanded + .search-form {
+    border-radius: 0 0 0.75rem 0.75rem;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .search-summary-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden; /* hides the "·" before the dates when they wrap to a second line */
+    line-height: 1.35;
+  }
+
+  .search-summary-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    margin-left: -1.125rem;
+  }
+
+  .search-summary-line > * {
+    margin-left: 1.125rem;
+  }
+
+  .search-summary-route {
+    font-weight: 700;
+    font-size: 0.9375rem;
+    overflow-wrap: anywhere;
+  }
+
+  .search-summary-dates {
+    position: relative;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    opacity: 0.75;
+  }
+
+  .search-summary-dates::before {
+    content: '·';
+    content: '·' / '';
+    position: absolute;
+    right: 100%;
+    width: 1.125rem;
+    text-align: center;
+  }
+
+  .search-summary-edit {
+    flex-shrink: 0;
+    min-width: 4.5rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 9999px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .search-summary-edit:hover {
+    border-color: var(--primary);
+  }
+
+  .search-summary-edit:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
 /* Loading State */
 .loading-state {
   text-align: center;
@@ -1106,6 +1212,96 @@ html {
 
   .filter-group {
     justify-content: space-between;
+  }
+}
+
+/* Phones: sorting and filters as one row of chips that scrolls sideways, so the results start sooner */
+@media (max-width: 640px) {
+  .results-toolbar {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 0.5rem;
+    scrollbar-width: none;
+    /* Shadows at an edge with more chips beyond it; the card-coloured covers scroll with the chips and hide
+       the shadow once the end is reached */
+    background:
+      linear-gradient(to right, var(--card-bg) 40%, transparent) left / 2rem 100% no-repeat local,
+      linear-gradient(to left, var(--card-bg) 40%, transparent) right / 2rem 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--foreground) 22%, transparent), transparent) left / 0.75rem 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--foreground) 22%, transparent), transparent) right / 0.75rem 100% no-repeat scroll,
+      var(--card-bg);
+  }
+
+  .results-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .results-toolbar .sort-group {
+    flex: none;
+    width: auto;
+    min-width: 0;
+  }
+
+  .results-toolbar .sort-group .toggle-btn {
+    flex: none;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .results-toolbar .filter-group {
+    flex: none;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid var(--border);
+  }
+
+  .results-toolbar .pill-selector {
+    width: auto;
+    align-items: stretch;
+  }
+
+  .results-toolbar .pill-toggle,
+  .results-toolbar .filter-field {
+    width: auto;
+    min-height: 2.75rem;
+    padding: 0 0.875rem;
+    white-space: nowrap;
+  }
+
+  .results-toolbar .filter-field {
+    padding-right: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+  }
+
+  .results-toolbar .filter-field.active {
+    border-color: var(--primary);
+  }
+
+  .results-toolbar .filter-field .pill-select {
+    margin-left: 0.25rem;
+    border-color: transparent;
+    background: transparent;
+    color: inherit;
+  }
+
+  .results-toolbar .price-input {
+    width: 4rem;
+    font-size: 1rem; /* 16px or more, so iPhones don't zoom in when it's tapped */
+  }
+
+  .results-toolbar .filter-reset {
+    flex: none;
+    padding: 0 0.5rem;
+    white-space: nowrap;
   }
 }
 
