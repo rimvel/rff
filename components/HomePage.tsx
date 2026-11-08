@@ -5,6 +5,8 @@ import Link from 'next/link';
 import SearchForm from '@/components/SearchForm';
 import FlightResults from '@/components/FlightResults';
 import HolidayWindows from '@/components/HolidayWindows';
+import HomeIntro from '@/components/HomeIntro';
+import LogoMark from '@/components/LogoMark';
 import PriceCalendar from '@/components/PriceCalendar';
 import RecentSearches from '@/components/RecentSearches';
 import SavedRoutes, { SaveRouteButton } from '@/components/SavedRoutes';
@@ -181,23 +183,22 @@ export default function HomePage() {
 
   return (
     <div className="app-container">
-      <header className="app-header-compact">
-        <h1 className="app-title-compact">
+      <header className="site-header">
+        <h1 className="site-title">
           <Link
             href="/"
-            className="no-underline text-current"
+            className="site-home"
             onClick={e => {
               e.preventDefault();
               setPresetDates(null);
               setQueryString(new URLSearchParams());
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- small static SVG logo */}
-            <img src="/logo.svg" alt="" className="logo-img-compact" />
+            <LogoMark className="site-logo" />
             RFF
           </Link>
         </h1>
-        <p className="app-subtitle">cheap flights, beyond direct</p>
+        <p className="site-tagline">cheap flights, beyond direct</p>
       </header>
 
       <main className="app-main">
@@ -215,6 +216,9 @@ export default function HomePage() {
         <SavedRoutes onPick={route => setQueryString(toPageParams(searchFor(route, request?.date ?? addDays(today, 1))))} />
 
         <RecentSearches currentKey={key} onPick={req => setQueryString(toPageParams(req))} />
+
+        {/* Before anything is searched: what the site does, and one-tap searches */}
+        {!request && <HomeIntro today={today} index={index} onPick={req => setQueryString(toPageParams(req))} />}
 
         <HolidayWindows
           today={today}
