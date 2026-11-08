@@ -110,7 +110,7 @@ try again" and a Try again button.
 ### Limits
 
 To keep one search from sending thousands of requests to Ryanair, a search is limited to ±7 flexible days,
-40 airports per side, and 300 airport-pair × date combinations. Results are capped at the 200 cheapest; the page shows 50 at a time.
+40 airports per side, and 300 airport-pair × date combinations. Results are capped at the 200 cheapest; the page shows the first 20, and "Show more" adds 20 at a time.
 The price calendar covers at most 100 airport pairs.
 
 All requests to Ryanair go through one queue (at most 6 at once, about 20 per second). When a visitor leaves or
