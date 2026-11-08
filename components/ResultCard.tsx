@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, ReactNode, useId, useState } from 'react';
+import { ryanairBookingUrl } from '@/lib/booking';
 import { daysLater, formatDay, formatDuration, formatPrice, formatStay, formatTime } from '@/lib/format';
 import { layoverBadges, layoverMinutes } from '@/lib/layoverRisk';
 import { formatDayList, schoolBreakOn, timeOff } from '@/lib/lithuania';
@@ -12,11 +13,11 @@ import { Flight, RouteResult, SearchResult } from '@/lib/types';
 const localDay = (local: string) => local.slice(0, 10);
 
 function bookingUrl(origin: string, destination: string, departure: string): string {
-    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${localDay(departure)}&roundtrip=false`;
+    return ryanairBookingUrl(origin, destination, localDay(departure));
 }
 
 function roundTripBookingUrl(origin: string, destination: string, departureOut: string, departureIn: string): string {
-    return `https://www.ryanair.com/en/en/trip/flights/select?adt=1&chd=0&inf=0&originIata=${origin}&destinationIata=${destination}&dateOut=${localDay(departureOut)}&dateIn=${localDay(departureIn)}&roundtrip=true`;
+    return ryanairBookingUrl(origin, destination, localDay(departureOut), localDay(departureIn));
 }
 
 function stopsLabel(leg: RouteResult): string {
