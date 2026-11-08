@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildAirportIndex } from '../lib/airportGroups';
-import { formatDay, formatDuration, formatStay } from '../lib/format';
+import { daysLater, formatDay, formatDuration, formatPrice, formatStay } from '../lib/format';
 import { layoverBadges } from '../lib/layoverRisk';
 import { summarize } from '../lib/resultFilters';
 import { suggestAlternatives } from '../lib/suggestions';
@@ -15,12 +15,34 @@ describe('formatting', () => {
         expect(formatDuration(50)).toBe('50 min');
         expect(formatDuration(180)).toBe('3 h');
         expect(formatDuration(490)).toBe('8 h 10 min');
-        expect(formatStay(13 * 60 + 20)).toBe('13 h');
-        expect(formatStay(7 * 24 * 60 + 13 * 60)).toBe('7 d 13 h');
+    });
+
+    it('gives short stays in hours and longer ones in nights', () => {
+        expect(formatStay('2026-11-13T07:00:00', '2026-11-13T20:20:00')).toBe('13 h');
+        expect(formatStay('2026-11-13T07:00:00', '2026-11-13T07:45:00')).toBe('45 min');
+        // Overnight but under a day: still hours
+        expect(formatStay('2026-11-13T22:00:00', '2026-11-14T21:00:00')).toBe('23 h');
+        expect(formatStay('2026-11-13T10:00:00', '2026-11-14T12:00:00')).toBe('1 night');
+        // 9 d 21 h, landing on the 24th and leaving on the 3rd: 10 hotel nights, across the new year
+        expect(formatStay('2026-12-24T14:00:00', '2027-01-03T11:00:00')).toBe('10 nights');
+        expect(formatStay('2026-11-13T07:00:00', '2026-11-20T20:00:00')).toBe('7 nights');
+    });
+
+    it('counts calendar days for "+1" arrivals', () => {
+        expect(daysLater('2026-11-13T21:40:00', '2026-11-13T23:55:00')).toBe(0);
+        expect(daysLater('2026-11-13T23:10:00', '2026-11-14T01:05:00')).toBe(1);
+        expect(daysLater('2026-12-31T18:00:00', '2027-01-02T09:00:00')).toBe(2);
+        // Across the October clock change
+        expect(daysLater('2026-10-24T22:00:00', '2026-10-25T06:00:00')).toBe(1);
     });
 
     it('formats days with the weekday', () => {
         expect(formatDay('2026-11-13T06:45:00')).toBe('Fri 13 Nov');
+    });
+
+    it('formats prices as euros with cents', () => {
+        expect(formatPrice(53.2)).toBe('€53.20');
+        expect(formatPrice(18.49)).toBe('€18.49');
     });
 });
 
