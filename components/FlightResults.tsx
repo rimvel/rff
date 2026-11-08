@@ -23,7 +23,8 @@ interface FlightResultsProps {
     titleAction?: ReactNode;
 }
 
-const PAGE_SIZE = 50;
+// The cheapest (or fastest...) 20 first; the rest are usually pricier or odd routes, a click away
+const PAGE_SIZE = 20;
 
 /** Identifies a trip by its flights, so an opened row stays with its trip when the list is re-sorted. */
 function tripKey(result: SearchResult): string {
@@ -160,7 +161,7 @@ export default function FlightResults({ request, results, view, onViewChange, on
 
             {visible.length > shown && !(anywhere && view.showMap) && (
                 <button type="button" className="show-more-btn" onClick={() => setShown(n => n + PAGE_SIZE)}>
-                    Show more ({visible.length - shown} left)
+                    Show {Math.min(PAGE_SIZE, visible.length - shown)} more ({visible.length - shown} left)
                 </button>
             )}
         </div>
