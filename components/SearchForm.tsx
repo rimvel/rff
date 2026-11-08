@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
 import { buildAirportIndex, labelFor } from '@/lib/airportGroups';
 import { ANYWHERE, SearchRequest, searchKey } from '@/lib/searchUrl';
 import { addDays } from '@/lib/time';
 import { DateDirection } from '@/lib/types';
 import AirportInput from './AirportInput';
+import SearchSummary from './SearchSummary';
 
 interface SearchFormProps {
     onSearch: (request: SearchRequest) => void;
@@ -20,6 +21,8 @@ interface SearchFormProps {
 }
 
 type Field = 'origin' | 'dest' | 'date' | 'returnDate';
+
+const FORM_ID = 'search-form';
 
 const DEFAULT_TRIP_DAYS = 7;
 const RANGE_OPTIONS = [1, 2, 3, 5, 7];
@@ -65,6 +68,38 @@ function FlexSelector({ label, active, onToggle, direction, onDirection, range, 
             )}
         </div>
     );
+}
+
+interface FormValues {
+    origin: string;
+    dest: string;
+    /** What's typed in the airport fields */
+    originText: string;
+    destText: string;
+    date: string;
+    returnDate: string;
+    roundTrip: boolean;
+    today: string;
+}
+
+/** What's wrong with the values entered, by field; empty when they can be searched. */
+function findProblems({ origin, dest, originText, destText, date, returnDate, roundTrip, today }: FormValues) {
+    const problems: Partial<Record<Field, string>> = {};
+    if (!origin) problems.origin = originText.trim() ? 'Pick an airport from the list.' : 'Choose where you\'re flying from.';
+    if (!dest) problems.dest = destText.trim() ? 'Pick an airport from the list.' : 'Choose where to, or 🌍 Anywhere.';
+    else if (dest === origin) problems.dest = 'Choose a different destination.';
+    if (!date) problems.date = 'Choose a date.';
+    else if (today && date < today) problems.date = 'Choose today or a later date.';
+    if (roundTrip && !returnDate) problems.returnDate = 'Choose a return date.';
+    else if (roundTrip && returnDate < date) problems.returnDate = 'The return can\'t be before the departure.';
+    return problems;
+}
+
+/** Whether a search (e.g. from the page address) can be run as it is. */
+function canSearch(req: SearchRequest | null, today: string): req is SearchRequest {
+    if (!req) return false;
+    const values = { ...req, originText: '', destText: '', returnDate: req.returnDate ?? '', roundTrip: !!req.returnDate, today };
+    return Object.keys(findProblems(values)).length === 0;
 }
 
 function DateField({ id, label, value, min, onChange, flexLabel, error }: {
@@ -119,7 +154,74 @@ function DateField({ id, label, value, min, onChange, flexLabel, error }: {
     );
 }
 
+/**
+ * The search form. On phones, once there is a search to show (from the address or just submitted), it is
+ * folded into a one-line summary with an Edit button, so the results come first. Wider screens always show the form.
+ */
 export default function SearchForm({ onSearch, isLoading, initial, today, onDraftChange }: SearchFormProps) {
+    // The search the results are for; null until there is a complete one
+    const [shown, setShown] = useState<SearchRequest | null>(() => (canSearch(initial, today) ? initial : null));
+    const [expanded, setExpanded] = useState(false);
+    // Bumped to re-create the fields, throwing away changes that weren't searched
+    const [resets, setResets] = useState(0);
+    const [draftKey, setDraftKey] = useState('');
+    const editButton = useRef<HTMLButtonElement>(null);
+    const focusEdit = useRef(false);
+
+    const reportDraft = useCallback((key: string) => {
+        setDraftKey(key);
+        onDraftChange?.(key);
+    }, [onDraftChange]);
+
+    // After searching on a phone the Search button (which had focus) is folded away: continue from Edit instead
+    useEffect(() => {
+        if (!focusEdit.current) return;
+        focusEdit.current = false;
+        const button = editButton.current;
+        if (button && button.getClientRects().length > 0) button.focus();
+    });
+
+    const search = (req: SearchRequest) => {
+        setShown(req);
+        setExpanded(false);
+        focusEdit.current = true;
+        onSearch(req);
+    };
+
+    const toggle = () => {
+        if (!expanded) {
+            setExpanded(true);
+            return;
+        }
+        setExpanded(false);
+        // Closing without searching undoes the changes, so the summary, form and results agree
+        if (draftKey !== searchKey(shown)) setResets(n => n + 1);
+    };
+
+    return (
+        <>
+            {shown && (
+                <SearchSummary ref={editButton} search={shown} expanded={expanded} onToggle={toggle} controls={FORM_ID} />
+            )}
+            <SearchFields
+                key={resets}
+                collapsed={!!shown && !expanded}
+                initial={shown ?? initial}
+                today={today}
+                isLoading={isLoading}
+                onSearch={search}
+                onDraftChange={reportDraft}
+            />
+        </>
+    );
+}
+
+interface SearchFieldsProps extends SearchFormProps {
+    /** Folded into the summary (phones only; see .search-form.is-collapsed) */
+    collapsed: boolean;
+}
+
+function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, collapsed }: SearchFieldsProps) {
     const { airports, error: airportsError } = useAirports();
     const index = useMemo(() => buildAirportIndex(airports), [airports]);
 
@@ -156,14 +258,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today, onDraf
 
     // Problems with what's entered; shown only after the first attempt to search, and updated as they're fixed
     const [attempted, setAttempted] = useState(false);
-    const problems: Partial<Record<Field, string>> = {};
-    if (!origin) problems.origin = originText.trim() ? 'Pick an airport from the list.' : 'Choose where you\'re flying from.';
-    if (!dest) problems.dest = destText.trim() ? 'Pick an airport from the list.' : 'Choose where to, or 🌍 Anywhere.';
-    else if (dest === origin) problems.dest = 'Choose a different destination.';
-    if (!date) problems.date = 'Choose a date.';
-    else if (today && date < today) problems.date = 'Choose today or a later date.';
-    if (roundTrip && !returnDate) problems.returnDate = 'Choose a return date.';
-    else if (roundTrip && returnDate < date) problems.returnDate = 'The return can\'t be before the departure.';
+    const problems = findProblems({ origin, dest, originText, destText, date, returnDate, roundTrip, today });
     const errors = attempted ? problems : {};
     const isValid = Object.keys(problems).length === 0;
 
@@ -205,7 +300,7 @@ export default function SearchForm({ onSearch, isLoading, initial, today, onDraf
     };
 
     return (
-        <form onSubmit={handleSubmit} className="search-form" noValidate>
+        <form id={FORM_ID} onSubmit={handleSubmit} className={collapsed ? 'search-form is-collapsed' : 'search-form'} noValidate>
             {airportsError && (
                 <p className="form-error airports-error" role="alert">
                     The list of airports couldn&apos;t be loaded, so airports can&apos;t be picked right now. Trying again…

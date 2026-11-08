@@ -1,5 +1,6 @@
 'use client';
 
+import { FocusEvent } from 'react';
 import { DEFAULT_VIEW, ResultView, SortOrder } from '@/lib/searchUrl';
 
 const SORTS: { value: SortOrder; label: string }[] = [
@@ -19,11 +20,20 @@ export function hasFilters(view: ResultView): boolean {
     return view.directOnly || view.sameAirport || !!view.maxLayoverHours || !!view.maxPrice;
 }
 
+// On phones the toolbar is one row of chips that scrolls sideways. Keep the control that has keyboard focus in
+// view: browsers scroll to a focused button or input, but not always to a focused <select>.
+function showFocused(e: FocusEvent<HTMLDivElement>) {
+    const row = e.currentTarget;
+    if (row.scrollWidth <= row.clientWidth) return;
+    const chip = e.target.closest('.filter-field, .pill-selector') ?? e.target;
+    chip.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
 export default function ResultsToolbar({ view, onChange }: ResultsToolbarProps) {
     const set = (patch: Partial<ResultView>) => onChange({ ...view, ...patch });
 
     return (
-        <div className="results-toolbar">
+        <div className="results-toolbar" onFocus={showFocused}>
             <div className="toggle-group sort-group" role="group" aria-label="Sort results">
                 {SORTS.map(s => (
                     <button
