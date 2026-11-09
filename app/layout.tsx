@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { THEME_COLORS } from "@/lib/theme";
+import { THEME_COLORS, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const inter = Inter({
@@ -45,8 +45,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Light until the page knows the chosen theme; ThemeToggle switches it to the dark colour in dark mode
-  themeColor: THEME_COLORS.light,
+  // Follows the system setting from the first frame; ThemeToggle overrides it when a theme was picked with the switch
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
   // Draw behind the phone's status bar and notch; the page adds the needed padding (safe-area insets)
   viewportFit: "cover",
 };
@@ -58,6 +61,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className={`${inter.variable} antialiased`}>
         {children}
       </body>

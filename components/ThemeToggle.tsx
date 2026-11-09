@@ -1,32 +1,48 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Theme, THEME_COLORS } from '@/lib/theme';
+import { effectiveTheme, parseThemeChoice, Theme, THEME_COLORS, THEME_STORAGE_KEY, ThemeChoice, toggledChoice } from '@/lib/theme';
 
-function readStoredTheme(): Theme {
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+function readSavedChoice(): ThemeChoice {
     try {
-        return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+        return parseThemeChoice(localStorage.getItem(THEME_STORAGE_KEY));
     } catch {
-        return 'light';
+        return 'system';
     }
 }
 
-const subscribe = (onChange: () => void) => {
+// Another tab changing the saved choice
+const subscribeStorage = (onChange: () => void) => {
     window.addEventListener('storage', onChange);
     return () => window.removeEventListener('storage', onChange);
 };
 
+const readSystemTheme = (): Theme => (window.matchMedia(DARK_QUERY).matches ? 'dark' : 'light');
+
+// The phone or computer switching light/dark (e.g. automatically at sunset)
+const subscribeSystem = (onChange: () => void) => {
+    const media = window.matchMedia(DARK_QUERY);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+};
+
 export default function ThemeToggle() {
-    // null while rendering on the server, so the button only appears once we know the stored theme
-    const storedTheme = useSyncExternalStore<Theme | null>(subscribe, readStoredTheme, () => null);
-    const [chosenTheme, setChosenTheme] = useState<Theme | null>(null);
-    const theme = chosenTheme ?? storedTheme;
+    // null while rendering on the server, so the button only appears once we know the theme
+    const savedChoice = useSyncExternalStore<ThemeChoice | null>(subscribeStorage, readSavedChoice, () => null);
+    const systemTheme = useSyncExternalStore<Theme | null>(subscribeSystem, readSystemTheme, () => null);
+    const [pressedChoice, setPressedChoice] = useState<ThemeChoice | null>(null);
+    const choice = pressedChoice ?? savedChoice;
+    const theme = choice && systemTheme ? effectiveTheme(choice, systemTheme) : null;
 
     useEffect(() => {
-        if (!theme) return;
-        document.documentElement.setAttribute('data-theme', theme);
+        if (!choice || !theme) return;
+        // No data-theme: the stylesheet's prefers-color-scheme rules follow the system by themselves
+        if (choice === 'system') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', choice);
         document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute('content', THEME_COLORS[theme]));
-    }, [theme]);
+    }, [choice, theme]);
 
     if (!theme) {
         return <div className="theme-switch-placeholder" aria-hidden="true" />; // same size, so nothing jumps
@@ -34,10 +50,12 @@ export default function ThemeToggle() {
 
     const dark = theme === 'dark';
     const toggleTheme = () => {
-        const newTheme = dark ? 'light' : 'dark';
-        setChosenTheme(newTheme);
+        if (!choice || !systemTheme) return;
+        const newChoice = toggledChoice(choice, systemTheme);
+        setPressedChoice(newChoice);
         try {
-            localStorage.setItem('theme', newTheme);
+            if (newChoice === 'system') localStorage.removeItem(THEME_STORAGE_KEY);
+            else localStorage.setItem(THEME_STORAGE_KEY, newChoice);
         } catch {
             // Storage unavailable (e.g. private mode); the theme still applies for this visit
         }
