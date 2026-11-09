@@ -1,126 +1,38 @@
 # RFF — cheap flights, beyond direct
 
-Finds the cheapest Ryanair connections between two places, including **self-transfer trips with one stop**
-that Ryanair's own site won't offer. Search by airport, city, region (e.g. "Spain South"), a group such as
-"Canary Islands", "South of Europe" or "Ski & Alps", or a whole country, with optional flexible dates and round trips.
+RFF finds the cheapest Ryanair flights, including **one-stop trips on separate tickets that Ryanair's own site
+won't offer**. Search by airport, city, country or a group such as "Canary Islands", "South of Europe" or
+"Ski & Alps", with flexible dates, round trips, price calendars and an "Anywhere" search.
 
-Live at https://rff.fvcloud.eu (Azure Web App `rffapp`, also at https://rffapp.azurewebsites.net).
+**Live at https://rff.fvcloud.eu** (Azure Web App `rffapp`, also at https://rffapp.azurewebsites.net).
 
 > Unofficial: not affiliated with or endorsed by Ryanair DAC. Fares come from Ryanair's public website.
 
-## How it works
+## Documentation
 
-Fares come from Ryanair's "cheapest per day" endpoint, which returns a whole month for a route in one
-request, so flexible dates cost almost nothing extra. Results stream to the page as they're found: direct
-flights first (about 0.2 s), then connections. Flight numbers are looked up afterwards for the 20 cheapest results.
+| Guide | For | What's in it |
+|---|---|---|
+| [User guide](docs/USER_GUIDE.md) | Anyone using the site | Searching, destination groups, dates, reading results and labels, booking, filters, Anywhere and the map, calendars, holiday windows, saved routes, phone tips, limits, problems |
+| [How it works](docs/HOW_IT_WORKS.md) | Developers | Architecture, Ryanair data, the search algorithm, streaming, caches and limits, API reference, page address and storage, project layout, tests |
+| [Maintenance](docs/MAINTENANCE.md) | The site owner | Releasing, checking and rolling back, recurring jobs (school holidays data, security updates, Node.js), common changes, when Ryanair changes something |
+| [Azure](AZURE.md) | The site owner | How the app runs on Azure, deploys, logs and troubleshooting |
 
-1. **Direct flight**: the cheapest fare on the chosen day.
-2. **One stop**: every airport that both ends fly to is tried as a hub. A connection is kept if the wait
-   at the hub is between 2 and 12 hours.
-3. **Round trips**: each outbound option is paired with the 5 cheapest return options (across all flexible
-   return dates) that leave after it lands.
+## Features
 
-**Anywhere**: choose "🌍 Anywhere" as the destination to list the cheapest places to fly to from the
-chosen airport(s), direct or with one stop, one row per destination (the cheapest option, plus the cheapest
-direct one when different). It asks Ryanair for every destination from the origin, then every destination
-from each of those airports, on each day. For round trips, return flights are looked up for the 40 cheapest
-destinations. Limits: up to 5 origin airports and 15 origin × day combinations.
-
-**Changing airports during a connection**: one-stop trips can also land at one airport and fly on from another
-in the same city (e.g. Vilnius → Luton, coach to Stansted, Stansted → Lisbon). The minimum time between flights
-is then 2 h plus the transfer time. These are badged "Airport change" and hidden by "Same airport only". They
-cost a few extra requests per search (about 5–20%). The price calendar uses them too; "Anywhere" doesn't.
-
-**Different airports on the way back**: when you select several airports (e.g. all of London), a round trip
-can fly back from another airport in the same city (out to Stansted, back from Luton), and land at another of
-your home airports within 200 km (out of Vilnius, back to Kaunas). Same-city airport groups and transfer
-times are in `lib/mixedAirports.ts`. These trips are badged, never "booked as one trip", and hidden by the
-"Same airport only" filter. They need no extra requests to Ryanair.
-
-**Map view**: "Anywhere" results can be shown as price pins on a map (List / Map toggle, kept in the page
-address as `show=map`). It uses Leaflet with OpenStreetMap tiles (no key; fine for light use under the
-[OSM tile policy](https://operations.osmfoundation.org/policies/tiles/); switch to a hosted tile service if traffic
-grows). The map code only loads when the map is opened.
-
-Ryanair's public fare API returns only the **cheapest flight per route per day**, so a connection that would
-need a more expensive flight on one leg can be missed.
-
-Times are shown in local time at each airport. Durations account for time zones.
-
-Each result shows the total price, then a timeline per direction (flights, layover length) with layover
-badges: **Tight** (under 2 h 30 min, risky with separate tickets), **Long** (over 8 h), **Overnight**, and
-**Self-transfer** (separate tickets: bags and check-in again). A summary line gives the cheapest price, the
-fastest trip and the cheapest direct option. When nothing is found, the page suggests flexible dates, nearby
-airports (within 250 km), a one-way search or "Anywhere".
-
-Results can be sorted (cheapest, fastest, earliest) and filtered (direct only, maximum layover, maximum price)
-in the browser. The search, sorting and filters are kept in the page address, so a link such as
-`/?from=VNO&to=BCN,GRO,REU&date=2026-11-13&return=2026-11-20&returnFlex=2&sort=fastest` can be shared or
-bookmarked, and Back/Forward work. Recent searches are remembered in the browser (localStorage); the 3 latest are shown.
-
-**Date grid**: for round trips, the price calendar opens on a grid of departure days (±3) × return days (±3)
-with the cheapest round trip in each cell (two one-way fares, paired by the same airport rules as the search).
-Clicking a cell searches those dates. The "Month (outbound)" tab shows the one-way month view.
-
-**Holiday windows (Lithuania)**: a strip (closed until you open it) of upcoming long weekends and school breaks (e.g. "Christmas to New
-Year · 11 days off · 4 leave days"). Picking one searches those dates (or fills them into the form). Public
-holidays are calculated for any year (`lib/lithuania.ts`, incl. Easter); school breaks and the windows are data
-that need updating each school year. The price calendar marks public holidays and school breaks, the date grid
-shows leave days needed under each price (orange when a pupil would miss school), and round-trip results show
-their leave days and school break.
-
-**Saved routes**: "☆ Save route" next to the results title keeps the route (not the dates) in the browser.
-Saved routes appear above the recent searches; clicking one searches it on the dates being looked at (or
-tomorrow), keeping a round trip's length.
-
-**Installable app**: the site has a web app manifest and generated icons (`app/manifest.ts`,
-`app/pwa-icons`), so it can be added to a phone's home screen and opens full screen as "RFF".
-
-A search that receives nothing from the server for 60 s is stopped with "The search was interrupted, please
-try again" and a Try again button.
-
-## Project layout
-
-| Path | What it does |
-| --- | --- |
-| `lib/ryanair.ts` | Calls to Ryanair's API, with caching and a cap of 8 simultaneous requests |
-| `lib/finder.ts` | Finds direct and one-stop routes for one airport pair and date |
-| `lib/search.ts` | Validates search input, expands flexible dates, builds round trips |
-| `lib/time.ts` | Local time ↔ UTC conversion and date helpers |
-| `lib/anywhere.ts` | "Anywhere" search: cheapest destinations from an airport |
-| `lib/lithuania.ts` | Lithuanian public holidays, school breaks, holiday windows, leave-day maths |
-| `lib/mixedAirports.ts` | Airports in the same city, transfer times, and which return airports are allowed |
-| `lib/calendar.ts` | Cheapest price per day for a month (the price calendar) |
-| `lib/events.ts` | Messages streamed from the search API to the page |
-| `lib/airportGroups.ts` | City / region / country groupings for the airport picker |
-| `lib/searchUrl.ts` | Search and result-view settings ↔ page address |
-| `lib/resultFilters.ts` | Sorting, filtering and the summary line |
-| `lib/layoverRisk.ts` | Layover badges (tight, long, overnight) |
-| `lib/suggestions.ts` | Suggestions when a search finds nothing |
-| `lib/format.ts` | Durations, times, days and prices for display |
-| `lib/recentSearches.ts` | Recent searches stored in the browser |
-| `app/api/search` | Streams results as newline-separated JSON (see `lib/events.ts`). `GET /api/search?origin=VNO&dest=BCN,GRO&date=2026-10-15[&returnDate=…&dateRangeDays=3&dateDirection=both|after|before&returnDateRange=…&returnDateDirection=…]` |
-| `app/api/calendar` | `GET /api/calendar?origin=VNO&dest=BCN&month=2026-11` → cheapest price per day |
-| `app/api/calendar/grid` | `GET /api/calendar/grid?origin=VNO&dest=STN&date=2026-11-06&returnDate=2026-11-09` → round-trip prices, ±3 days × ±3 days |
-| `app/api/health` | Version, uptime and recent Ryanair request status (never calls Ryanair; 503 while paused) |
-| `app/api/airports` | List of active Ryanair airports (cached 24h) |
-| `components/` | Search form, airport picker, results |
-| `tests/` | Unit tests (Vitest) |
-
-### Limits
-
-To keep one search from sending thousands of requests to Ryanair, a search is limited to ±7 flexible days,
-40 airports per side, and 300 airport-pair × date combinations. Results are capped at the 200 cheapest; the page shows the first 20, and "Show more" adds 20 at a time.
-The price calendar covers at most 100 airport pairs.
-
-All requests to Ryanair go through one queue (at most 6 at once, about 20 per second). When a visitor leaves or
-starts another search, the requests still queued for the old one are dropped. Per visitor (by IP address): 30
-searches a minute, 5 "Anywhere" searches per 10 minutes, and 40 calendar views a minute (a view for many airports
-counts as several: 1 more for every 10 airport pairs).
+- **Direct and one-stop trips**, including changing airports within a city (e.g. land at Luton, fly on from
+  Stansted), with warnings for tight, long and overnight connections.
+- **Round trips** that can come back via another airport in the same city or to another home airport nearby.
+- **Many airports at once**: cities, countries and ready-made groups.
+- **Flexible dates** up to ±7 days, a **price calendar** and a round-trip **date grid**.
+- **Anywhere**: the cheapest places to fly to, as a list or on a map.
+- **Compact results** with Book buttons that open the trip on ryanair.com; 20 at a time with "Show more".
+- **Sort and filter** in the browser; the whole search lives in the page address, so links can be shared.
+- **Lithuanian holiday windows**: long weekends and school breaks with the leave days needed.
+- **Saved routes**, recent searches, quick-start buttons, dark mode that follows the device, and an installable app.
 
 ## Development
 
-Requires Node.js 24 (the version Azure runs: `NODE|24-lts`, supported until April 2028).
+Requires Node.js 24.
 
 ```bash
 npm install
@@ -128,38 +40,9 @@ npm run dev          # http://localhost:3000
 npm test             # unit tests
 npm run lint
 npm run typecheck
+npm run build
 ```
 
-### Link previews
-
-Shared links show a title, description and image (Open Graph / Twitter cards). A shared search gets its own
-title, e.g. "Vilnius → Barcelona · 20 Nov | RFF". Preview links and the canonical address use
-`https://rff.fvcloud.eu`; set the `SITE_URL` environment variable if the site moves to another address.
-
-### Health check and logs
-
-`GET /api/health` shows the live version (commit), when the server started, and how requests to Ryanair are
-going: requests and failures in the last 30 s and since start, the last failure (with status code), and whether
-requests are paused. It answers 503 while paused, so it can be used with an uptime monitor.
-
-Container logging is on in Azure (`az webapp log config --docker-container-logging filesystem`, kept 3 days);
-download with `az webapp log download --name rffapp --resource-group RG-Azure-RVE-RFF`. The app logs failed
-Ryanair requests and when it pauses them.
-
-## Deployment
-
-Every push to `main` runs lint, type check, tests and a security audit. If they pass, the app is built and
-deployed to Azure (`.github/workflows/main_rffapp.yml`). Deploys run one at a time, and a run only succeeds once
-`/api/health` shows the new version (Azure can take a few minutes to switch). Pull requests run the same checks
-without deploying (`.github/workflows/checks.yml`).
-
-See `AZURE.md` for how the Azure side is set up and what to check when something goes wrong.
-
-### Rolling back
-
-To undo a merged pull request, open it on GitHub, click **Revert**, then merge the pull request GitHub creates.
-Merging goes through `main`, so the previous version is redeployed automatically.
-
-Tags such as `stable-2026-09-23` mark known-good versions. Deploys must run from `main`, because Azure's login
-trusts only that branch. To restore a tag's code, bring it back onto `main` (for example
-`git checkout stable-2026-09-23 -- .` then commit and push). Don't run the workflow on the tag directly.
+Every pull request runs lint, type check, tests, a security audit and a build. Merging to `main` deploys to
+Azure automatically and waits until `/api/health` shows the new version. See [Maintenance](docs/MAINTENANCE.md)
+for releasing and rolling back.
