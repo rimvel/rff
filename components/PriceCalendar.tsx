@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import type { PriceCalendar as Calendar } from '@/lib/calendar';
+import { formatPrice } from '@/lib/format';
 import { SearchRequest } from '@/lib/searchUrl';
 import { holidayOn, schoolBreakOn } from '@/lib/lithuania';
 import { expandDates, localToUtcMs } from '@/lib/time';
 import { useToday } from '@/lib/useUrl';
 import DateGrid from './DateGrid';
+import Icon from './Icon';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -82,7 +84,9 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
         <section className="price-calendar" aria-label="Price calendar">
             <div className="cal-header">
                 <button type="button" className="cal-title" aria-expanded={open} onClick={() => setOpen(!open)}>
-                    📅 Price calendar <span className="cal-chevron">{open ? '▾' : '▸'}</span>
+                    <Icon name="calendar" />
+                    Price calendar
+                    <Icon name="chevron-down" className="cal-chevron" />
                 </button>
                 {open && !showGrid && (
                     <div className="cal-nav">
@@ -92,11 +96,11 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
                             disabled={!!today && month <= today.slice(0, 7)}
                             onClick={() => setMonth(m => shiftMonth(m, -1))}
                         >
-                            ‹
+                            <Icon name="chevron-left" />
                         </button>
                         <span className="cal-month">{monthName(month)}</span>
                         <button type="button" aria-label="Next month" onClick={() => setMonth(m => shiftMonth(m, 1))}>
-                            ›
+                            <Icon name="chevron-right" />
                         </button>
                     </div>
                 )}
@@ -134,7 +138,7 @@ export default function PriceCalendar({ request, onPickDate, onPickDates }: Pric
                                 holiday ? 'cal-holiday' : '',
                                 schoolBreak ? 'cal-school' : '',
                             ].join(' ');
-                            const priceText = day.price === null ? 'No flights' : `${day.direct ? 'Direct' : 'With one stop'} from €${day.price.toFixed(2)}`;
+                            const priceText = day.price === null ? 'No flights' : `${day.direct ? 'Direct' : 'With one stop'} from ${formatPrice(day.price)}`;
                             return (
                                 <button
                                     key={day.date}

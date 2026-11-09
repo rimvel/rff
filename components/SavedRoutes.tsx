@@ -1,6 +1,7 @@
 'use client';
 
 import { FavouriteRoute, isFavourite, removeFavourite, routeKey, toggleFavourite, useFavourites } from '@/lib/favourites';
+import Icon from './Icon';
 
 interface SavedRoutesProps {
     onPick: (route: FavouriteRoute) => void;
@@ -17,11 +18,12 @@ export default function SavedRoutes({ onPick }: SavedRoutesProps) {
             {saved.map(r => (
                 <span key={routeKey(r)} className="recent-chip saved-chip">
                     <button type="button" className="saved-chip-main" onClick={() => onPick(r)} title="Search this route on the dates you're looking at">
-                        ★ {r.fromLabel} {r.tripDays !== undefined ? '⇄' : '→'} {r.toLabel}
+                        <Icon name="star" filled />
+                        {r.fromLabel} {r.tripDays !== undefined ? '⇄' : '→'} {r.toLabel}
                         {r.tripDays !== undefined && <span className="recent-dates">{r.tripDays} {r.tripDays === 1 ? 'day' : 'days'}</span>}
                     </button>
                     <button type="button" className="saved-chip-remove" onClick={() => removeFavourite(r)} aria-label={`Remove ${r.fromLabel} to ${r.toLabel} from saved routes`}>
-                        ✕
+                        <Icon name="close" />
                     </button>
                 </span>
             ))}
@@ -29,7 +31,7 @@ export default function SavedRoutes({ onPick }: SavedRoutesProps) {
     );
 }
 
-/** "☆ Save route" / "★ Saved" toggle for the route being shown. */
+/** "Save route" / "Saved" toggle (an outlined or filled star) for the route being shown. */
 export function SaveRouteButton({ route }: { route: FavouriteRoute }) {
     const saved = isFavourite(route, useFavourites());
     return (
@@ -40,7 +42,8 @@ export function SaveRouteButton({ route }: { route: FavouriteRoute }) {
             onClick={() => toggleFavourite(route)}
             title={saved ? 'Remove from saved routes' : 'Save this route to search it again with one click'}
         >
-            {saved ? '★ Saved' : '☆ Save route'}
+            <Icon name="star" filled={saved} />
+            {saved ? 'Saved' : 'Save route'}
         </button>
     );
 }

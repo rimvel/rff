@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { DateGrid as Grid } from '@/lib/calendar';
+import { formatPrice } from '@/lib/format';
 import { holidayOn, schoolBreakOn, timeOff } from '@/lib/lithuania';
 import { SearchRequest } from '@/lib/searchUrl';
 import { localToUtcMs } from '@/lib/time';
@@ -113,7 +114,7 @@ export default function DateGrid({ request, onPick }: DateGridProps) {
                                                 disabled={!usable}
                                                 onClick={() => onPick(dep, ret)}
                                                 title={usable
-                                                    ? `${dayMonth(dep)} – ${dayMonth(ret)}: from €${price.toFixed(2)} · ${leave === 0 ? 'no leave days' : `${leave} leave day${leave === 1 ? '' : 's'}`}${school ? ` · misses ${school} school day${school === 1 ? '' : 's'}` : ''}`
+                                                    ? `${dayMonth(dep)} – ${dayMonth(ret)}: from ${formatPrice(price)} · ${leave === 0 ? 'no leave days' : `${leave} leave day${leave === 1 ? '' : 's'}`}${school ? ` · misses ${school} school day${school === 1 ? '' : 's'}` : ''}`
                                                     : 'No round trip'}
                                             >
                                                 {usable ? `€${Math.round(price)}` : '–'}

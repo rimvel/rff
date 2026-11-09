@@ -19,7 +19,7 @@ export interface QuickStartOrigin {
 
 export interface QuickStart {
     id: string;
-    icon: string;
+    icon: 'globe' | 'sun' | 'calendar'; // a line icon (components/Icon.tsx)
     title: string;
     details: string[]; // shown as "Vilnius ⇄ South of Europe · 21–28 Nov"
     request: SearchRequest;
@@ -115,7 +115,7 @@ export function buildQuickStarts(today: string, origin: QuickStartOrigin, index:
     const friday = nextFriday(today);
     starts.push({
         id: 'anywhere-weekend',
-        icon: '🌍',
+        icon: 'globe',
         // Monday to Thursday it's this week's Friday; from Friday on, next week's
         title: addDays(today, 4) >= friday ? 'Anywhere this weekend' : 'Anywhere next weekend',
         details: [`From ${origin.label}`, formatDay(friday)],
@@ -134,7 +134,7 @@ export function buildQuickStarts(today: string, origin: QuickStartOrigin, index:
         const flex = fitFlex(origins.length, sunCodes.length, 1);
         starts.push({
             id: 'sun-week',
-            icon: '☀️',
+            icon: 'sun',
             title: 'A week in the sun',
             details: [`${origin.label} ⇄ ${SUN_GROUP}`, formatRange(date, returnDate)],
             request: {
@@ -151,7 +151,7 @@ export function buildQuickStarts(today: string, origin: QuickStartOrigin, index:
         if (window) {
             starts.push({
                 id: 'long-weekend',
-                icon: '📅',
+                icon: 'calendar',
                 title: withoutLocalName(window.name),
                 details: [
                     `${origin.label} ⇄ ${SUN_GROUP}`,
