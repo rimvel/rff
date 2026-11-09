@@ -9,6 +9,7 @@ import { distanceKm, transferMinutes } from '@/lib/mixedAirports';
 import { isAllDirect, otherAirportsBack } from '@/lib/resultFilters';
 import { minutesAtSamePlace } from '@/lib/time';
 import { Flight, RouteResult, SearchResult } from '@/lib/types';
+import Icon from './Icon';
 
 const localDay = (local: string) => local.slice(0, 10);
 
@@ -73,7 +74,7 @@ function Timeline({ leg, placeName, firstLeg }: { leg: RouteResult; placeName: (
                                     rel="noopener noreferrer"
                                     title={`Book ${flight.origin} → ${flight.destination} on ryanair.com`}
                                 >
-                                    Book leg {firstLeg + i} <span aria-hidden="true">↗</span> {formatPrice(flight.price.value)}
+                                    Book leg {firstLeg + i} <Icon name="external" /> {formatPrice(flight.price.value)}
                                 </a>
                             )}
                         </li>
@@ -142,7 +143,8 @@ function TimeOffChips({ from, to }: { from: string; to: string }) {
     return (
         <span className="rc-timeoff">
             <span className="time-chip" title={leave ? `Take ${formatDayList(off.leaveDays)}` : 'Only weekends and public holidays'}>
-                🗓 {off.days} days · {leave === 0 ? 'no leave needed' : `${leave} leave day${leave === 1 ? '' : 's'}`}
+                <Icon name="calendar" />
+                {off.days} days · {leave === 0 ? 'no leave needed' : `${leave} leave day${leave === 1 ? '' : 's'}`}
             </span>
             {schoolBreak && <span className="time-chip">{schoolBreak.name}</span>}
             {off.schoolDays.length > 0 && (
@@ -287,9 +289,7 @@ export default function ResultCard({ result, places, showRoute }: ResultCardProp
                     )}
                     <LegLine leg={result} label={ret ? 'Out' : undefined} flags={outFlags} />
                     {ret && <LegLine leg={ret} label="Back" flags={backFlags} />}
-                    <svg className="rr-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                        <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <Icon name="chevron-down" className="rr-chevron" />
                 </button>
                 <div className="rr-buy">
                     <span className="rr-price">{price}</span>
@@ -301,7 +301,7 @@ export default function ResultCard({ result, places, showRoute }: ResultCardProp
                             rel="noopener noreferrer"
                             aria-label={`Book on ryanair.com, ${price} (opens in a new tab)`}
                         >
-                            Book <span aria-hidden="true">↗</span>
+                            Book <Icon name="external" />
                         </a>
                     ) : (
                         <span className="rr-tickets" title="Separate tickets: book each flight on its own (open the row for the links)">

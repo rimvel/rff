@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDayList, upcomingWindows, WindowInfo } from '@/lib/lithuania';
+import Icon from './Icon';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -41,7 +42,8 @@ export default function HolidayWindows({ today, active, onPick }: HolidayWindows
         <section className="holiday-windows" aria-label="Holiday windows">
             <div className="hw-header">
                 <button type="button" className="recent-title hw-toggle" aria-expanded={open} aria-controls="hw-strip" onClick={() => setOpen(!open)}>
-                    Holiday windows <span className="hw-chevron" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                    Holiday windows
+                    <Icon name="chevron-down" className="hw-chevron" />
                 </button>
                 <span className="hw-sub">
                     {open

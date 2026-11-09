@@ -5,6 +5,7 @@ import { AirportIndex } from '@/lib/airportGroups';
 import { buildQuickStarts, pickOrigin } from '@/lib/quickStarts';
 import { useRecentSearches } from '@/lib/recentSearches';
 import { SearchRequest } from '@/lib/searchUrl';
+import Icon from './Icon';
 
 interface HomeIntroProps {
     /** The visitor's local date; '' until it is known (server rendering) */
@@ -35,15 +36,18 @@ export default function HomeIntro({ today, index, onPick }: HomeIntroProps) {
                         {starts.map(s => (
                             <li key={s.id}>
                                 <button type="button" className="quick-start" onClick={() => onPick(s.request)}>
-                                    <span className="qs-icon" aria-hidden="true">{s.icon}</span>
+                                    <Icon name={s.icon} className="qs-icon" />
                                     <span className="qs-text">
                                         <span className="qs-title">{s.title}</span>
                                         <span className="qs-detail">
-                                            {/* Lines break after a "·", not inside a part */}
+                                            {/* Lines break after a "·", not inside a part (the dot stays with the part before it) */}
                                             {s.details.map((part, i) => (
                                                 <Fragment key={i}>
-                                                    {i > 0 && '\u00a0· '}
-                                                    <span className="qs-part">{part}</span>
+                                                    {i > 0 && ' '}
+                                                    <span className="qs-part">
+                                                        {part}
+                                                        {i < s.details.length - 1 && '\u00a0·'}
+                                                    </span>
                                                 </Fragment>
                                             ))}
                                         </span>

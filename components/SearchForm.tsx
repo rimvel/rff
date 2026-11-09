@@ -7,6 +7,7 @@ import { ANYWHERE, SearchRequest, searchKey } from '@/lib/searchUrl';
 import { addDays } from '@/lib/time';
 import { DateDirection } from '@/lib/types';
 import AirportInput from './AirportInput';
+import Icon from './Icon';
 import SearchSummary from './SearchSummary';
 
 interface SearchFormProps {
@@ -40,8 +41,8 @@ function FlexSelector({ label, active, onToggle, direction, onDirection, range, 
 }) {
     return (
         <div className={`pill-selector ${active ? 'active' : ''}`}>
-            <button type="button" className="pill-toggle" onClick={onToggle}>
-                <span className="icon">📅</span>
+            <button type="button" className="pill-toggle" aria-pressed={active} onClick={onToggle}>
+                <Icon name="calendar" />
                 {label}
             </button>
             {active && (
@@ -86,7 +87,7 @@ interface FormValues {
 function findProblems({ origin, dest, originText, destText, date, returnDate, roundTrip, today }: FormValues) {
     const problems: Partial<Record<Field, string>> = {};
     if (!origin) problems.origin = originText.trim() ? 'Pick an airport from the list.' : 'Choose where you\'re flying from.';
-    if (!dest) problems.dest = destText.trim() ? 'Pick an airport from the list.' : 'Choose where to, or 🌍 Anywhere.';
+    if (!dest) problems.dest = destText.trim() ? 'Pick an airport from the list.' : 'Choose where to, or pick Anywhere.';
     else if (dest === origin) problems.dest = 'Choose a different destination.';
     if (!date) problems.date = 'Choose a date.';
     else if (today && date < today) problems.date = 'Choose today or a later date.';
@@ -136,16 +137,18 @@ function DateField({ id, label, value, min, onChange, flexLabel, error }: {
                             if (prev >= min) onChange(prev);
                         }}
                         title="Previous day"
+                        aria-label="Previous day"
                     >
-                        -
+                        <Icon name="minus" />
                     </button>
                     <button
                         type="button"
                         className="date-adjuster-mini"
                         onClick={() => onChange(addDays(value, 1))}
                         title="Next day"
+                        aria-label="Next day"
                     >
-                        +
+                        <Icon name="plus" />
                     </button>
                 </div>
             </div>
@@ -330,7 +333,7 @@ function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, coll
                     className="swap-button"
                     onClick={handleSwap}
                     disabled={dest === ANYWHERE}
-                    title="Swap Origin and Destination"
+                    title="Swap origin and destination"
                 >
                     <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20 7H4" />
@@ -392,7 +395,7 @@ function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, coll
                         className={`toggle-btn ${!roundTrip ? 'active' : ''}`}
                         onClick={() => setRoundTrip(false)}
                     >
-                        One Way
+                        One way
                     </button>
                     <button
                         type="button"
@@ -402,13 +405,13 @@ function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, coll
                             if (date) setReturnDate(addDays(date, DEFAULT_TRIP_DAYS));
                         }}
                     >
-                        Round Trip
+                        Round trip
                     </button>
                 </div>
 
                 <div className="flex-options">
                     <FlexSelector
-                        label="Flex Departure"
+                        label="Flex departure"
                         active={flexibleDeparture}
                         onToggle={() => setFlexibleDeparture(!flexibleDeparture)}
                         direction={departureDateDirection}
@@ -418,7 +421,7 @@ function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, coll
                     />
                     {roundTrip && (
                         <FlexSelector
-                            label="Flex Return"
+                            label="Flex return"
                             active={flexibleReturn}
                             onToggle={() => setFlexibleReturn(!flexibleReturn)}
                             direction={returnDateDirection}

@@ -4,6 +4,7 @@ import { forwardRef, useMemo, useState } from 'react';
 import { AirportGroup, AirportIndex, searchAirports } from '@/lib/airportGroups';
 import { ANYWHERE } from '@/lib/searchUrl';
 import { Airport } from '@/lib/types';
+import Icon from './Icon';
 
 const getFlagEmoji = (countryCode: string) =>
     countryCode
@@ -80,10 +81,10 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
                 <strong>{group.name}</strong>
                 <span className="autocomplete-sub">
                     {group.kind !== 'region'
-                        ? `All Airports (${group.airportCodes.length})`
+                        ? `All airports (${group.airportCodes.length})`
                         : group.description
                           ? `${group.description} · ${group.airportCodes.length} airports`
-                          : `Regional Group (${group.airportCodes.length} airports)`}
+                          : `Regional group (${group.airportCodes.length} airports)`}
                 </span>
             </div>
         </div>
@@ -119,8 +120,9 @@ const AirportInput = forwardRef<HTMLInputElement, AirportInputProps>(function Ai
                             if (ref && typeof ref !== 'function') ref.current?.focus();
                         }}
                         title={`Clear ${label}`}
+                        aria-label={`Clear ${label}`}
                     >
-                        ✕
+                        <Icon name="close" />
                     </button>
                 )}
                 {open && hasMatches && (

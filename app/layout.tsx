@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { THEME_COLORS } from "@/lib/theme";
 import "./globals.css";
 
 const inter = Inter({
@@ -44,7 +45,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#5161ce",
+  // Light until the page knows the chosen theme; ThemeToggle switches it to the dark colour in dark mode
+  themeColor: THEME_COLORS.light,
   // Draw behind the phone's status bar and notch; the page adds the needed padding (safe-area insets)
   viewportFit: "cover",
 };

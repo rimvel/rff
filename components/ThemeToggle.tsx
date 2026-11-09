@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-
-type Theme = 'light' | 'dark';
+import { Theme, THEME_COLORS } from '@/lib/theme';
 
 function readStoredTheme(): Theme {
     try {
@@ -24,7 +23,9 @@ export default function ThemeToggle() {
     const theme = chosenTheme ?? storedTheme;
 
     useEffect(() => {
-        if (theme) document.documentElement.setAttribute('data-theme', theme);
+        if (!theme) return;
+        document.documentElement.setAttribute('data-theme', theme);
+        document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute('content', THEME_COLORS[theme]));
     }, [theme]);
 
     if (!theme) {
