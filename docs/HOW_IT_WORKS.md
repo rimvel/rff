@@ -98,6 +98,12 @@ Layover badges (`lib/layoverRisk.ts`): *Tight* under 2 h 30 min (plus transfer t
 When a search finds nothing, the page offers ideas (`lib/suggestions.ts`): ±3 flexible days, up to 2 nearby
 airports within 250 km, one way instead of a round trip, or Anywhere.
 
+**Cheaper nearby** (`lib/cheaperDates.ts`, `components/CheaperDates.tsx`): once a search is complete, the page
+asks the price calendar (one-way: the month; round trip: the date grid with `sameMonth=1`) and shows one line
+when dates within 3 days that the search didn't cover are at least €5 and 10% cheaper than the cheapest
+result. A round trip may change length by one day at most. This adds no requests to Ryanair: the calendar
+answers from the month fares the search just loaded, and `sameMonth` leaves out days in a month it didn't load.
+
 ## 4. Anywhere, calendar and date grid
 
 **Anywhere** (`lib/anywhere.ts`): for each origin and day, one request lists the cheapest flight to every
@@ -170,7 +176,8 @@ input), 429 (too many requests, with `Retry-After`), 500 or 503 (Ryanair unavail
 | `dateRangeDays`, `dateDirection` | `3`, `both` / `after` / `before` | Optional. Flexible departure |
 | `returnDateRange`, `returnDateDirection` | `2`, `both` | Optional. Flexible return |
 
-Response: NDJSON stream (section 5).
+Response: NDJSON stream (section 5). A `date` that is over in every time zone gets 400 ("That date has
+passed…"); the page never asks for one (see "Out-of-date links" in section 8).
 
 ### `/api/calendar`: cheapest price per day
 
@@ -183,6 +190,9 @@ Response: NDJSON stream (section 5).
 `?origin=VNO&dest=STN&date=2026-11-06&returnDate=2026-11-09` →
 `{"departures":[…7 dates],"returns":[…7 dates],"prices":[[…]],"includesConnections":true}`
 (`prices[i][j]` is the cheapest round trip leaving `departures[i]` and returning `returns[j]`, or `null`).
+
+With `&sameMonth=1` the days outside the month of `date` (for departures) and of `returnDate` (for returns)
+are left out, so the lists can be shorter than 7. The "cheaper nearby" hint uses this.
 
 ### `/api/airports`
 
@@ -225,6 +235,13 @@ A shared search gets its own link preview title, e.g. "Vilnius → Barcelona · 
 `app/opengraph-image.tsx`). Previews and the canonical address use `https://rff.fvcloud.eu` (override with the
 `SITE_URL` environment variable).
 
+**Out-of-date links** (`components/HomePage.tsx`): when the departure date in the address is before the
+visitor's today, the page shows the same trip moved to the first later day with the same weekday
+(`nextSameWeekday` in `lib/time.ts`, `moveTrip` keeps the length and flexible days), replaces the address, and
+shows a notice (`useMovedFrom` in `lib/useUrl.ts`, forgotten at the next address change). The page also keeps
+the tab title on the search shown: the server's title for the address first opened can arrive late, so the page
+watches for it and puts its own back.
+
 ### Browser storage (`localStorage`, this device only)
 
 | Key | What | Code |
@@ -239,11 +256,12 @@ A shared search gets its own link preview title, e.g. "Vilnius → Barcelona · 
 
 | Component | Part of the page |
 |---|---|
-| `SearchForm`, `AirportInput`, `SearchSummary` | The form, the airport picker (airports, cities, countries, groups, Anywhere), and the folded one-line form on phones |
+| `SearchForm`, `AirportInput`, `SearchSummary` | The form, the airport picker (airports, cities, countries, groups, Anywhere; a combobox with a listbox, arrow keys and Enter), and the folded one-line form on phones |
 | `HomeIntro`, `LogoMark` | Intro line and "Try one" quick starts (`lib/quickStarts.ts`), logo |
 | `RecentSearches`, `SavedRoutes`, `HolidayWindows` | Recent searches, saved routes, Lithuanian holiday windows |
 | `ResultsToolbar` | Sort and filters (chips on phones) |
 | `FlightResults`, `ResultCard` | The result list (20 at a time), compact rows with Book links (`lib/booking.ts`) |
+| `CheaperDates` | The "Cheaper nearby" line under the results summary (`lib/cheaperDates.ts`) |
 | `AnywhereMap` | Leaflet map for Anywhere, loaded on demand |
 | `PriceCalendar`, `DateGrid` | Month view and round-trip grid |
 | `ThemeToggle`, `Icon` | Dark mode switch, line icons |
@@ -265,6 +283,7 @@ Styling is one stylesheet, `app/globals.css`, with light and dark colours (`[dat
 | `lib/mixedAirports.ts` | Same-city airports, transfer times, allowed return airports |
 | `lib/anywhere.ts` | Anywhere search |
 | `lib/calendar.ts` | Price calendar and date grid |
+| `lib/cheaperDates.ts` | Rules for the "cheaper nearby" hint |
 | `lib/rateLimit.ts` | Per-visitor limits and visitor address |
 | `lib/events.ts` | Stream message types and reader |
 | `lib/airportGroups.ts` | Cities, regions, countries and groups for the picker |
@@ -296,7 +315,8 @@ npm run build        # production build (standalone)
 
 The tests cover search limits and validation, one-stop and round-trip pairing, mixed airports, Anywhere,
 caching and the request queue, rate limits and visitor addresses, page address round trips, filters, holiday
-maths, airport groups, quick starts, booking links and theme logic. They don't call Ryanair.
+maths, airport groups, quick starts, booking links, theme logic, moving out-of-date links and the "cheaper
+nearby" rules. They don't call Ryanair.
 
 A local dev server calls the real Ryanair APIs. Test heavy searches (Anywhere, many airports) locally rather
 than on the live site: bursts from the live server's address can get it blocked for a while.

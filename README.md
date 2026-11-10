@@ -26,6 +26,7 @@ won't offer**. Search by airport, city, country or a group such as "Canary Islan
 - **Flexible dates** up to ±7 days, a **price calendar** and a round-trip **date grid**.
 - **Anywhere**: the cheapest places to fly to, as a list or on a map.
 - **Compact results** with Book buttons that open the trip on ryanair.com; 20 at a time with "Show more".
+- **Cheaper nearby**: a one-line hint when moving the trip by a few days would be noticeably cheaper.
 - **Sort and filter** in the browser; the whole search lives in the page address, so links can be shared.
 - **Lithuanian holiday windows**: long weekends and school breaks with the leave days needed.
 - **Saved routes**, recent searches, quick-start buttons, dark mode that follows the device, and an installable app.
