@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SearchEvent } from '@/lib/events';
 import { clientKey, createRateLimit, tooManyRequests } from '@/lib/rateLimit';
 import { parseSearchParams, streamSearch } from '@/lib/search';
+import { isPastEverywhere } from '@/lib/time';
 
 // Per visitor: plenty for normal use, but stops one person (or bot) from getting the server blocked by Ryanair
 const searchesPerVisitor = createRateLimit(30, 60_000);
@@ -13,6 +14,10 @@ export async function GET(request: NextRequest) {
     const parsed = parseSearchParams(request.nextUrl.searchParams);
     if (!parsed.ok) {
         return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    // A day that is over everywhere has no flights left to find (the page moves such links to new dates)
+    if (isPastEverywhere(parsed.params.date)) {
+        return NextResponse.json({ error: 'That date has passed. Choose today or a later date.' }, { status: 400 });
     }
     const visitor = clientKey(request.headers);
     const allowed = searchesPerVisitor(visitor);

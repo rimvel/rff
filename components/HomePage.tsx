@@ -15,12 +15,13 @@ import { buildAirportIndex, shortLabelFor } from '@/lib/airportGroups';
 import { applyFlightNumbers, readEvents } from '@/lib/events';
 import { routeOf, searchFor } from '@/lib/favourites';
 import { searchTitle, SITE_TITLE } from '@/lib/searchTitle';
-import { addDays } from '@/lib/time';
+import { formatDay } from '@/lib/format';
+import { addDays, nextSameWeekday } from '@/lib/time';
 import { saveRecentSearch } from '@/lib/recentSearches';
 import { ANYWHERE, moveTrip, readSearch, readView, ResultView, SearchRequest, searchKey, toApiUrl, toPageParams } from '@/lib/searchUrl';
 import { SearchResult } from '@/lib/types';
 import { useAirports } from '@/lib/useAirports';
-import { setQueryString, useFormVersion, useQueryString, useToday } from '@/lib/useUrl';
+import { setQueryString, useFormVersion, useMovedFrom, useQueryString, useToday } from '@/lib/useUrl';
 
 interface SearchOutcome {
   key: string;
@@ -36,15 +37,39 @@ interface SearchOutcome {
 const NO_RESPONSE_LIMIT_MS = 60_000;
 const INTERRUPTED = 'The search was interrupted, please try again.';
 
+/** "Sat 10 Oct" or "Sat 10 Oct – Sat 17 Oct" */
+function formatTripDates({ date, returnDate }: { date: string; returnDate?: string }): string {
+  return returnDate ? `${formatDay(date)} – ${formatDay(returnDate)}` : formatDay(date);
+}
+
 export default function HomePage() {
   // The search lives in the page address, so it can be shared and Back/Forward work
   const queryString = useQueryString();
   const params = useMemo(() => new URLSearchParams(queryString), [queryString]);
-  const request = useMemo(() => readSearch(params), [params]);
+  const linked = useMemo(() => readSearch(params), [params]);
   const view = useMemo(() => readView(params), [params]);
+  const today = useToday();
+  // An old link or bookmark whose departure day has passed can't be searched: show the same trip
+  // (same weekday, same length) on the next possible dates instead, and say so
+  const request = useMemo(
+    () => (linked && today && linked.date < today ? moveTrip(linked, nextSameWeekday(linked.date, today)) : linked),
+    [linked, today],
+  );
   const key = searchKey(request);
   const anywhere = request?.dest === ANYWHERE;
-  const today = useToday();
+
+  // Put the new dates in the address too, so it always matches what is shown
+  useEffect(() => {
+    if (linked && request && request !== linked) {
+      setQueryString(toPageParams(request, view), {
+        replace: true,
+        keepForm: true,
+        movedFrom: { date: linked.date, returnDate: linked.returnDate },
+      });
+    }
+  }, [linked, request, view]);
+  const replaced = useMovedFrom();
+  const movedFrom = request && request !== linked ? linked : replaced;
 
   const { airports } = useAirports();
   const index = useMemo(() => buildAirportIndex(airports), [airports]);
@@ -156,7 +181,16 @@ export default function HomePage() {
   // Keep the browser tab title in step with the search shown (the server only sets it on first load)
   useEffect(() => {
     const req = readSearch(new URLSearchParams(key));
-    document.title = req ? searchTitle(req, index) : SITE_TITLE;
+    const title = req ? searchTitle(req, index) : SITE_TITLE;
+    const apply = () => {
+      if (document.title !== title) document.title = title;
+    };
+    apply();
+    // The server's title (for the address first opened) can arrive after this has run and put the old
+    // one back, e.g. the passed date of an out-of-date link. Put ours back when that happens.
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
   }, [key, index]);
 
   // Remember searches once airport names are known, so the list can show them
@@ -225,6 +259,13 @@ export default function HomePage() {
           active={request ? { date: request.date, returnDate: request.returnDate } : presetDates ?? undefined}
           onPick={pickHolidayWindow}
         />
+
+        {request && movedFrom && (
+          <div className="stale-notice moved-notice" role="status">
+            That link was for <strong>{formatTripDates(movedFrom)}</strong>, which has passed. Showing{' '}
+            <strong>{formatTripDates(request)}</strong> instead.
+          </div>
+        )}
 
         {isLoading && (
           <div className="loading-state">
