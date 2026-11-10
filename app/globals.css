@@ -1662,6 +1662,45 @@ html {
   color: white;
 }
 
+/* "Cheaper nearby: Sun 6 Dec – Sat 12 Dec from €139.76": one tap searches those dates */
+.cheaper-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 1000px;
+  width: 100%;
+  min-height: 2.5rem;
+  margin: -0.5rem auto 1.25rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cheaper-dates:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.cheaper-dates svg {
+  flex-shrink: 0;
+}
+
+.cheaper-saving {
+  color: var(--on-page-muted);
+  white-space: nowrap;
+}
+
+/* The arrow at the far end says the line can be pressed */
+.cheaper-dates .cheaper-go {
+  margin-left: auto;
+}
+
 /* Result card: a compact row (times, duration, stops, price, Book) that opens to a timeline per direction.
    Round trips add a full-width line of time-off chips under the row. */
 .rr-head {

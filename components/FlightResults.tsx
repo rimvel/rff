@@ -9,6 +9,7 @@ import { ANYWHERE, DEFAULT_VIEW, ResultView, SearchRequest } from '@/lib/searchU
 import { suggestAlternatives } from '@/lib/suggestions';
 import { SearchResult } from '@/lib/types';
 import { useAirports } from '@/lib/useAirports';
+import CheaperDates from './CheaperDates';
 import ResultCard, { Places } from './ResultCard';
 import ResultsToolbar, { hasFilters } from './ResultsToolbar';
 
@@ -21,6 +22,8 @@ interface FlightResultsProps {
     onSearch: (request: SearchRequest) => void;
     /** Shown next to the results title (e.g. "Save route") */
     titleAction?: ReactNode;
+    /** The search has finished, so the cheapest price is final */
+    complete?: boolean;
 }
 
 // The cheapest (or fastest...) 20 first; the rest are usually pricier or odd routes, a click away
@@ -38,7 +41,7 @@ const AnywhereMap = dynamic(() => import('./AnywhereMap'), {
     loading: () => <div className="anywhere-map map-loading">Loading map…</div>,
 });
 
-export default function FlightResults({ request, results, view, onViewChange, onSearch, titleAction }: FlightResultsProps) {
+export default function FlightResults({ request, results, view, onViewChange, onSearch, titleAction, complete = false }: FlightResultsProps) {
     const { airports } = useAirports();
     const index = useMemo(() => buildAirportIndex(airports), [airports]);
     const [shown, setShown] = useState(PAGE_SIZE);
@@ -118,6 +121,10 @@ export default function FlightResults({ request, results, view, onViewChange, on
                         <>{' · '}Direct from <strong>{formatPrice(summary.cheapestDirect)}</strong></>
                     )}
                 </p>
+            )}
+
+            {complete && summary && !anywhere && (
+                <CheaperDates request={request} cheapest={summary.cheapest} onPick={onSearch} />
             )}
 
             <ResultsToolbar view={view} onChange={onViewChange} />

@@ -134,7 +134,17 @@ export interface DateGrid {
     includesConnections: boolean;
 }
 
-export type GridParams = { origins: string[]; dests: string[]; date: string; returnDate: string };
+export type GridParams = {
+    origins: string[];
+    dests: string[];
+    date: string;
+    returnDate: string;
+    /**
+     * Leave out days in another month than the chosen dates. A search has already loaded the fares for those
+     * months, so a grid limited to them needs no further requests to Ryanair (used for the "cheaper nearby" hint).
+     */
+    sameMonth?: boolean;
+};
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -153,7 +163,7 @@ export function parseGridParams(sp: URLSearchParams): { ok: true; params: GridPa
     if (airportPairs(origins, dests).length > MAX_GRID_PAIRS) {
         return { ok: false, error: 'Too many airports for the date grid.' };
     }
-    return { ok: true, params: { origins, dests, date, returnDate } };
+    return { ok: true, params: { origins, dests, date, returnDate, sameMonth: sp.get('sameMonth') === '1' } };
 }
 
 /**
@@ -161,9 +171,10 @@ export function parseGridParams(sp: URLSearchParams): { ok: true; params: GridPa
  * separate one-way fares (that's how they're booked anyway), paired by the same rules as the search,
  * including coming back from another airport in the same city or to another selected home airport nearby.
  */
-export async function roundTripGrid({ origins, dests, date, returnDate }: GridParams, signal?: AbortSignal): Promise<DateGrid> {
-    const departures = expandDates(date, GRID_DAYS, 'both');
-    const returns = expandDates(returnDate, GRID_DAYS, 'both');
+export async function roundTripGrid({ origins, dests, date, returnDate, sameMonth }: GridParams, signal?: AbortSignal): Promise<DateGrid> {
+    const around = (day: string) => expandDates(day, GRID_DAYS, 'both').filter(d => !sameMonth || d.slice(0, 7) === day.slice(0, 7));
+    const departures = around(date);
+    const returns = around(returnDate);
     const pairs = airportPairs(origins, dests);
     const includesConnections = pairs.length <= MAX_GRID_PAIRS_WITH_CONNECTIONS;
 
