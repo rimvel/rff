@@ -28,7 +28,7 @@ Merging to `main` deploys (`.github/workflows/main_rffapp.yml`):
 3. The run waits until `/api/health` reports the new commit, and fails if it doesn't within 10 minutes.
 
 Deploys run one at a time. Don't deploy by hand (`az webapp up` or zip uploads): that skips the checks and the
-next merge would overwrite it anyway. To go back to an earlier version, see "Rolling back" in the README.
+next merge would overwrite it anyway. To go back to an earlier version, see "Rolling back" in [docs/MAINTENANCE.md](docs/MAINTENANCE.md#3-rolling-back).
 
 ## When something is wrong
 
