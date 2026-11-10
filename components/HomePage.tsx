@@ -187,9 +187,10 @@ export default function HomePage() {
     };
     apply();
     // The server's title (for the address first opened) can arrive after this has run and put the old
-    // one back, e.g. the passed date of an out-of-date link. Put ours back when that happens.
+    // one back, e.g. the passed date of an out-of-date link. Put ours back when that happens. A title
+    // that arrives late sits in <body>, not <head>, so the whole page is watched.
     const observer = new MutationObserver(apply);
-    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, [key, index]);
 
