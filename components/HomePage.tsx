@@ -323,6 +323,7 @@ export default function HomePage() {
             key={current.key}
             request={request}
             results={results}
+            complete={current.complete}
             view={view}
             onViewChange={handleViewChange}
             onSearch={req => setQueryString(toPageParams(req))}
