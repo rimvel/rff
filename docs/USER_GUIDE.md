@@ -78,9 +78,14 @@ You can also type words like `sunny`, `beach`, `ski` or `snow` to find these gro
 
 The ⇄ button swaps From and To.
 
+With a keyboard: the **Up** and **Down** arrows move through the list, **Enter** picks the highlighted item
+(or, with nothing highlighted, the best match for what you typed) and **Esc** closes the list.
+
 ## 3. Choosing dates
 
-- **One way / Round trip** switches between a single flight and a trip with a return date.
+- **One way / Round trip** switches between a single flight and a trip with a return date. Switching back to
+  Round trip keeps a return date you had already chosen.
+- The weekday is shown next to each date's label ("DEPARTURE Sat").
 - The **−** and **+** buttons next to a date move it one day back or forward.
 - **Flex departure** (and **Flex return** for round trips) also searches days around your date: up to ±7 days,
   either side or only before or only after. Flexible dates cost almost nothing extra, so use them freely.
@@ -114,6 +119,17 @@ are usually pricier or odd routes.
 | **Lands in Kaunas** (or another city) | A round trip comes back to another of your home airports within 200 km, e.g. out of Vilnius and back to Kaunas. Only when you picked several home airports |
 
 A summary line above the results shows the cheapest price, the fastest trip and the cheapest direct option.
+
+### Cheaper nearby
+
+When moving the trip by a few days would be noticeably cheaper, one line under the summary says so, for example
+"Cheaper nearby: Wed 2 Dec – Thu 10 Dec from €130.87 · €33.58 less". Press it to search those dates.
+
+- It looks up to 3 days either side of your dates, and skips days your search already covered.
+- A round trip keeps about the same length: at most one day longer or shorter.
+- It appears only for a saving of at least €5 and 10%.
+- Near the start or end of a month it looks at fewer days on that side. It isn't shown for Anywhere or for
+  searches with very many airports.
 
 If nothing is found, RFF suggests what to try: flexible dates, nearby airports (within 250 km), a one-way
 search or Anywhere.
@@ -185,6 +201,9 @@ Picking a window searches those dates, or fills them into the form if you haven'
 - **Recent** shows your last 3 searches. **Clear** forgets them.
 - **Sharing**: the page address holds the whole search, including sorting and filters. Copy it to share or
   bookmark, and Back/Forward in the browser work as expected. Shared links show a preview with the route and date.
+- **Old links**: a link or bookmark whose departure date has passed opens the same trip on the next same
+  weekday, with the same length, and a notice says so ("That link was for Sat 10 Oct, which has passed. Showing
+  Sat 14 Nov instead.").
 
 Saved routes, recent searches and your theme choice are kept only in your browser (on that device).
 
