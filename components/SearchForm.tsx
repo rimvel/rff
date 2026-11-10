@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAirports } from '@/lib/useAirports';
 import { buildAirportIndex, labelFor } from '@/lib/airportGroups';
 import { ANYWHERE, SearchRequest, searchKey } from '@/lib/searchUrl';
+import { formatDay } from '@/lib/format';
 import { addDays } from '@/lib/time';
 import { DateDirection } from '@/lib/types';
 import AirportInput from './AirportInput';
@@ -103,6 +104,11 @@ function canSearch(req: SearchRequest | null, today: string): req is SearchReque
     return Object.keys(findProblems(values)).length === 0;
 }
 
+/** "Sat" */
+function weekday(date: string): string {
+    return formatDay(date).split(' ')[0];
+}
+
 function DateField({ id, label, value, min, onChange, flexLabel, error }: {
     id: string;
     label: string;
@@ -115,7 +121,11 @@ function DateField({ id, label, value, min, onChange, flexLabel, error }: {
     return (
         <div className={`form-group ${error ? 'has-error' : ''}`}>
             <div className="date-with-flex">
-                <label htmlFor={id}>{label}</label>
+                <span className="date-label">
+                    <label htmlFor={id}>{label}</label>
+                    {/* The date field itself shows no weekday, and it matters for picking flights */}
+                    {value && <span className="date-weekday" id={`${id}-weekday`}>{weekday(value)}</span>}
+                </span>
                 {flexLabel && <span className="flex-indicator">{flexLabel}</span>}
             </div>
             <div className="date-input-wrapper">
@@ -126,7 +136,7 @@ function DateField({ id, label, value, min, onChange, flexLabel, error }: {
                     onChange={e => e.target.value && onChange(e.target.value)}
                     min={min}
                     aria-invalid={!!error}
-                    aria-describedby={error ? `${id}-error` : undefined}
+                    aria-describedby={[value && `${id}-weekday`, error && `${id}-error`].filter(Boolean).join(' ') || undefined}
                 />
                 <div className="date-adjusters-overlay">
                     <button
@@ -303,7 +313,12 @@ function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, coll
     };
 
     return (
-        <form id={FORM_ID} onSubmit={handleSubmit} className={collapsed ? 'search-form is-collapsed' : 'search-form'} noValidate>
+        <form
+            id={FORM_ID}
+            onSubmit={handleSubmit}
+            className={`search-form${roundTrip ? ' is-round-trip' : ''}${collapsed ? ' is-collapsed' : ''}`}
+            noValidate
+        >
             {airportsError && (
                 <p className="form-error airports-error" role="alert">
                     The list of airports couldn&apos;t be loaded, so airports can&apos;t be picked right now. Trying again…
@@ -402,7 +417,8 @@ function SearchFields({ onSearch, isLoading, initial, today, onDraftChange, coll
                         className={`toggle-btn ${roundTrip ? 'active' : ''}`}
                         onClick={() => {
                             setRoundTrip(true);
-                            if (date) setReturnDate(addDays(date, DEFAULT_TRIP_DAYS));
+                            // Keep a return date that was already chosen (e.g. after a look at one-way prices)
+                            if (date && (!returnDate || returnDate < date)) setReturnDate(addDays(date, DEFAULT_TRIP_DAYS));
                         }}
                     >
                         Round trip

@@ -14,10 +14,22 @@ const URL_CHANGE = 'rff:urlchange';
 let formVersion = 1;
 let listening = false;
 
+/** The dates an out-of-date link asked for, while the page shows the same trip on later dates. */
+export interface MovedSearch {
+    date: string;
+    returnDate?: string;
+}
+
+// Set when an out-of-date link is replaced; forgotten at the next address change
+let movedFrom: MovedSearch | null = null;
+
 function subscribe(onChange: () => void) {
     if (!listening) {
-        // Registered first, so the version is already updated when the listeners below run
-        window.addEventListener('popstate', () => formVersion++);
+        // Registered first, so these are already updated when the listeners below run
+        window.addEventListener('popstate', () => {
+            formVersion++;
+            movedFrom = null;
+        });
         listening = true;
     }
     window.addEventListener('popstate', onChange);
@@ -37,12 +49,22 @@ export function useFormVersion(): number {
     return useSyncExternalStore(subscribe, () => formVersion, () => 0);
 }
 
+/** What an out-of-date link asked for, if the search in the address replaced one (see setQueryString). */
+export function useMovedFrom(): MovedSearch | null {
+    return useSyncExternalStore(subscribe, () => movedFrom, () => null);
+}
+
 /**
  * Change the query string. `replace` updates the current history entry instead of adding one;
- * `keepForm` leaves the search form as it is (because the change came from it).
+ * `keepForm` leaves the search form as it is (because the change came from it); `movedFrom` says the
+ * new search stands in for a link whose dates had passed.
  */
-export function setQueryString(params: URLSearchParams, { replace = false, keepForm = false } = {}) {
+export function setQueryString(
+    params: URLSearchParams,
+    { replace = false, keepForm = false, movedFrom: was = null }: { replace?: boolean; keepForm?: boolean; movedFrom?: MovedSearch | null } = {},
+) {
     if (!keepForm) formVersion++;
+    movedFrom = was;
     const qs = params.toString();
     const url = qs ? `?${qs}` : window.location.pathname;
     if (replace) window.history.replaceState(window.history.state, '', url);
