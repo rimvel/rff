@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, localToUtcMs, minutesBetween } from '../lib/time';
+import { addDays, isPastEverywhere, localToUtcMs, minutesBetween, nextSameWeekday } from '../lib/time';
 
 describe('localToUtcMs', () => {
     it('converts local time in a zone to UTC', () => {
@@ -34,5 +34,41 @@ describe('addDays', () => {
         expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
         expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
         expect(addDays('2026-10-15', 0)).toBe('2026-10-15');
+    });
+});
+
+describe('nextSameWeekday', () => {
+    // 2026-11-10 is a Tuesday
+    it('moves a passed date to the same weekday after today', () => {
+        expect(nextSameWeekday('2026-10-10', '2026-11-10')).toBe('2026-11-14'); // Saturday -> next Saturday
+        expect(nextSameWeekday('2026-11-09', '2026-11-10')).toBe('2026-11-16'); // yesterday (Monday) -> next Monday
+        expect(nextSameWeekday('2025-12-24', '2026-11-10')).toBe('2026-11-11'); // a Wednesday long ago -> tomorrow
+    });
+
+    it('never gives today itself, and leaves later dates alone', () => {
+        expect(nextSameWeekday('2026-11-10', '2026-11-10')).toBe('2026-11-17');
+        expect(nextSameWeekday('2026-11-03', '2026-11-10')).toBe('2026-11-17');
+        expect(nextSameWeekday('2026-11-20', '2026-11-10')).toBe('2026-11-20');
+    });
+
+    it('keeps the weekday across a year end', () => {
+        const moved = nextSameWeekday('2026-12-26', '2027-01-02'); // both Saturdays
+        expect(moved).toBe('2027-01-09');
+        expect(new Date(`${moved}T00:00:00Z`).getUTCDay()).toBe(6);
+    });
+});
+
+describe('isPastEverywhere', () => {
+    const at = (iso: string) => Date.parse(iso);
+
+    it('is false while the day is still today somewhere (up to 12 hours behind UTC)', () => {
+        expect(isPastEverywhere('2026-11-10', at('2026-11-10T23:59:00Z'))).toBe(false);
+        expect(isPastEverywhere('2026-11-10', at('2026-11-11T11:59:00Z'))).toBe(false);
+        expect(isPastEverywhere('2026-11-11', at('2026-11-10T08:00:00Z'))).toBe(false); // tomorrow
+    });
+
+    it('is true once the day has ended everywhere', () => {
+        expect(isPastEverywhere('2026-11-10', at('2026-11-11T12:00:00Z'))).toBe(true);
+        expect(isPastEverywhere('2026-10-10', at('2026-11-10T08:00:00Z'))).toBe(true);
     });
 });

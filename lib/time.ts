@@ -82,6 +82,19 @@ export function expandDates(date: string, rangeDays: number, direction: 'both' |
     return dates;
 }
 
+/** The first day after `after` that falls on the same weekday as `date` (both "YYYY-MM-DD"). */
+export function nextSameWeekday(date: string, after: string): string {
+    const days = Math.round((Date.parse(after) - Date.parse(date)) / 86_400_000);
+    // The next multiple of 7 days beyond `after`; a date already after it is kept
+    return days < 0 ? date : addDays(date, (Math.floor(days / 7) + 1) * 7);
+}
+
+/** Whether a "YYYY-MM-DD" day is over in every time zone, so it is nobody's "today" any more. */
+export function isPastEverywhere(date: string, now = Date.now()): boolean {
+    // The last place on Earth to finish a day is 12 hours behind UTC
+    return date < new Date(now - 12 * 3_600_000).toISOString().slice(0, 10);
+}
+
 /** Today's date as "YYYY-MM-DD" in the user's own time zone (not UTC). */
 export function todayLocal(): string {
     const now = new Date();
